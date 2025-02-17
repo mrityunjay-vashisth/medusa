@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mrityunjay-vashisth/core-service/internal/auth"
 	"github.com/mrityunjay-vashisth/core-service/internal/onboarding"
-	"github.com/mrityunjay-vashisth/core-service/proto"
+	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to auth-service: %v", err)
 	}
-	authClient := proto.NewAuthServiceClient(authConn)
+	authClient := authpb.NewAuthServiceClient(authConn)
 
 	authHandler := auth.NewAuthClient(authClient)
 

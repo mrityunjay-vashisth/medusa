@@ -5,9 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mrityunjay-vashisth/auth-service/proto"
-
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
@@ -16,7 +15,7 @@ import (
 var jwtKey = []byte("my-secret-key")
 
 type authService struct {
-	proto.UnimplementedAuthServiceServer
+	authpb.UnimplementedAuthServiceServer
 	client *mongo.Client
 }
 
@@ -37,7 +36,7 @@ func NewAuthService(client *mongo.Client) *authService {
 	return &authService{client: client}
 }
 
-func (s *authService) Register(ctx context.Context, req *proto.RegisterRequest) (*proto.RegisterResponse, error) {
+func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
 	if req.Username == "" || req.Password == "" || req.Email == "" {
 		return nil, errors.New("username, password and email are required")
 	}
@@ -62,10 +61,10 @@ func (s *authService) Register(ctx context.Context, req *proto.RegisterRequest) 
 		return nil, err
 	}
 
-	return &proto.RegisterResponse{Message: "User registered successfully"}, nil
+	return &authpb.RegisterResponse{Message: "User registered successfully"}, nil
 }
 
-func (s *authService) Login(ctx context.Context, req *proto.LoginRequest) (*proto.LoginResponse, error) {
+func (s *authService) Login(ctx context.Context, req *authpb.LoginRequest) (*authpb.LoginResponse, error) {
 	collection := s.client.Database("authdb").Collection("users")
 	var u user
 	err := collection.FindOne(ctx, bson.M{"username": req.Username}).Decode(&u)
@@ -85,14 +84,14 @@ func (s *authService) Login(ctx context.Context, req *proto.LoginRequest) (*prot
 	if err != nil {
 		return nil, err
 	}
-	return &proto.LoginResponse{
+	return &authpb.LoginResponse{
 		Token:   tokenString,
 		Message: "Successfully logged In",
 		Email:   u.Email,
 	}, nil
 }
 
-func (s *authService) CheckAccess(ctx context.Context, req *proto.CheckAccessRequest) (*proto.CheckAccessResponse, error) {
+func (s *authService) CheckAccess(ctx context.Context, req *authpb.CheckAccessRequest) (*authpb.CheckAccessResponse, error) {
 	claims := &claims{}
 	token, err := jwt.ParseWithClaims(req.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
@@ -104,6 +103,6 @@ func (s *authService) CheckAccess(ctx context.Context, req *proto.CheckAccessReq
 	if claims.Role != "admin" {
 		return nil, errors.New("access denied")
 	}
-	return &proto.CheckAccessResponse{Message: "Access granted"}, nil
+	return &authpb.CheckAccessResponse{Message: "Access granted"}, nil
 
 }

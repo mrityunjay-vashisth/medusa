@@ -6,14 +6,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mrityunjay-vashisth/core-service/proto"
+	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 )
 
 type AuthClient struct {
-	client proto.AuthServiceClient
+	client authpb.AuthServiceClient
 }
 
-func NewAuthClient(client proto.AuthServiceClient) *AuthClient {
+func NewAuthClient(client authpb.AuthServiceClient) *AuthClient {
 	return &AuthClient{client: client}
 }
 
@@ -28,13 +28,13 @@ func (a *AuthClient) Login(c *gin.Context) {
 		return
 	}
 
-	authReq := &proto.LoginRequest{
+	authReq := &authpb.LoginRequest{
 		Username: req.Username,
 		Password: req.Password,
 	}
 	authResp, err := a.client.Login(context.Background(), authReq)
 	if err != nil {
-		log.Printf("🚨 Login failed: %v", err)
+		log.Printf("Login failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate"})
 		return
 	}

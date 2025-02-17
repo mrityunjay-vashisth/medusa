@@ -8,7 +8,7 @@ import (
 
 	"github.com/mrityunjay-vashisth/auth-service/internal/auth"
 	"github.com/mrityunjay-vashisth/auth-service/internal/oauth"
-	"github.com/mrityunjay-vashisth/auth-service/proto"
+	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
@@ -39,8 +39,8 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterAuthServiceServer(grpcServer, authService)
-	proto.RegisterOAuthServiceServer(grpcServer, oauthService)
+	authpb.RegisterAuthServiceServer(grpcServer, authService)
+	authpb.RegisterOAuthServiceServer(grpcServer, oauthService)
 
 	log.Println("gRPC server running on port 50051")
 	if err := grpcServer.Serve(listner); err != nil {

@@ -8,13 +8,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mrityunjay-vashisth/auth-service/internal/oauth"
-	"github.com/mrityunjay-vashisth/auth-service/proto"
+	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type oAuthService struct {
-	proto.UnimplementedOAuthServiceServer
+	authpb.UnimplementedOAuthServiceServer
 	manager *oauth.Manager
 	client  *mongo.Client
 }
@@ -23,16 +23,16 @@ func NewOAuthService(manager *oauth.Manager, client *mongo.Client) *oAuthService
 	return &oAuthService{manager: manager, client: client}
 }
 
-func (s *oAuthService) OAuthLogin(ctx context.Context, req *proto.OAuthLoginRequest) (*proto.OAuthLoginResponse, error) {
+func (s *oAuthService) OAuthLogin(ctx context.Context, req *authpb.OAuthLoginRequest) (*authpb.OAuthLoginResponse, error) {
 	provider, err := s.manager.GetProvider(req.Provider)
 	if err != nil {
 		return nil, errors.New("unsupported provider")
 	}
 	url := provider.GetConfig().AuthCodeURL("state-token")
-	return &proto.OAuthLoginResponse{Url: url}, nil
+	return &authpb.OAuthLoginResponse{Url: url}, nil
 }
 
-func (s *oAuthService) OAuthCallback(ctx context.Context, req *proto.OAuthCallbackRequest) (*proto.OAuthCallbackResponse, error) {
+func (s *oAuthService) OAuthCallback(ctx context.Context, req *authpb.OAuthCallbackRequest) (*authpb.OAuthCallbackResponse, error) {
 	provider, err := s.manager.GetProvider(req.Provider)
 	if err != nil {
 		return nil, errors.New("unsupported provider")
@@ -47,7 +47,7 @@ func (s *oAuthService) OAuthCallback(ctx context.Context, req *proto.OAuthCallba
 
 		// Generate JWT for mock user
 		tokenString := generateJWT(userInfo["name"].(string), "user")
-		return &proto.OAuthCallbackResponse{
+		return &authpb.OAuthCallbackResponse{
 			Token:   tokenString,
 			Message: "Mock Login Success",
 			Email:   userInfo["email"].(string),
@@ -93,7 +93,7 @@ func (s *oAuthService) OAuthCallback(ctx context.Context, req *proto.OAuthCallba
 
 	// Generate JWT Token
 	tokenString := generateJWT(u.Username, u.Role)
-	return &proto.OAuthCallbackResponse{
+	return &authpb.OAuthCallbackResponse{
 		Token:   tokenString,
 		Message: "Successfully Logged In",
 		Email:   u.Email,
