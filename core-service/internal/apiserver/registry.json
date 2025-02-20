@@ -1,0 +1,27 @@
+{
+    "core": {
+      "v1": {
+        "/onboarding/{subpath}": {
+          "methods": ["GET", "POST"],
+          "subhandler": "OnboardingHandler"
+        },
+        "/users": {
+          "methods": ["POST"],
+          "subhandler": "UserHandler"
+        },
+        "/users/{id}": {
+          "methods": ["GET"],
+          "subhandler": "UserHandler"
+        },
+        "/auth/login": {
+          "methods": ["POST"],
+          "subhandler": "AuthHandler"
+        },
+        "/auth/register": {
+          "methods": ["POST"],
+          "subhandler": "AuthHandler"
+        }
+      }
+    }
+  }
+  

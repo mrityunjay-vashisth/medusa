@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -37,8 +38,8 @@ func NewAuthService(client *mongo.Client) *authService {
 }
 
 func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
-	if req.Username == "" || req.Password == "" || req.Email == "" {
-		return nil, errors.New("username, password and email are required")
+	if req.Username == "" || req.Password == "" || req.Email == "" || req.Role == "" {
+		return nil, errors.New("username, password email and role are required")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -54,7 +55,7 @@ func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest)
 	_, err = collection.InsertOne(ctx, user{
 		Username: req.Username,
 		Password: string(hashedPassword),
-		Role:     "admin",
+		Role:     req.Role,
 		Email:    req.Email,
 	})
 	if err != nil {
@@ -84,6 +85,7 @@ func (s *authService) Login(ctx context.Context, req *authpb.LoginRequest) (*aut
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("%s", u.Role)
 	return &authpb.LoginResponse{
 		Token:   tokenString,
 		Message: "Successfully logged In",
@@ -100,7 +102,7 @@ func (s *authService) CheckAccess(ctx context.Context, req *authpb.CheckAccessRe
 		return nil, errors.New("invalid token")
 	}
 
-	if claims.Role != "admin" {
+	if claims.Role != "superuser" {
 		return nil, errors.New("access denied")
 	}
 	return &authpb.CheckAccessResponse{Message: "Access granted"}, nil
