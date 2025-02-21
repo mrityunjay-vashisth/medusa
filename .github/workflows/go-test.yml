@@ -11,37 +11,6 @@ on:
       - develop
 
 jobs:
-  # test-auth-service:
-  #   name: Run Tests for Auth Service
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: '1.23.3'  # Use Go version from your go.mod
-
-  #     - name: Install dependencies
-  #       run: go mod tidy
-  #       working-directory: auth-service
-
-  #     - name: Run Unit Tests with Coverage
-  #       run: go test -coverprofile=coverage.out ./...
-  #       working-directory: auth-service
-
-  #     - name: Display Code Coverage in Logs
-  #       run: go tool cover -func=coverage.out
-  #       working-directory: auth-service
-
-  #     - name: Upload Coverage Report for Auth Service
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: auth-service-coverage
-  #         path: auth-service/coverage.out
-
   test-core-service:
     name: Run Tests for Core Service
     runs-on: ubuntu-latest
@@ -63,12 +32,20 @@ jobs:
         run: go test -coverprofile=coverage.out ./...
         working-directory: core-service
 
-      - name: Display Code Coverage in Logs
-        run: go tool cover -func=coverage.out
-        working-directory: core-service
+      - name: Extract Code Coverage Percentage
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          echo "COVERAGE=$COVERAGE%" >> $GITHUB_ENV
 
-      - name: Upload Coverage Report for Core Service
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-service-coverage
-          path: core-service/coverage.out
+      - name: Generate Coverage Badge
+        run: |
+          echo "![Coverage](https://img.shields.io/badge/Coverage-${{ env.COVERAGE }}-brightgreen)" > core-service/coverage-badge.md
+
+      - name: Commit Coverage Badge
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add core-service/coverage-badge.md
+          git commit -m "Update coverage badge" || echo "No changes to commit"
+          git push
+        continue-on-error: true
