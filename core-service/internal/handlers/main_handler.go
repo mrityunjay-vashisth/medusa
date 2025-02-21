@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // MainHandler manages subhandlers dynamically
@@ -16,7 +16,7 @@ type MainHandler struct {
 }
 
 // NewMainHandler initializes subhandlers
-func NewMainHandler(db *mongo.Client, authClient authpb.AuthServiceClient) *MainHandler {
+func NewMainHandler(db db.DBClientInterface, authClient authpb.AuthServiceClient) *MainHandler {
 	return &MainHandler{
 		UserHandler:       NewUserHandler(db),
 		OnboardingHandler: NewOnboardingHandler(db),

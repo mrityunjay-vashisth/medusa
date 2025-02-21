@@ -5,16 +5,16 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/mrityunjay-vashisth/core-service/internal/db"
 )
 
 // UserHandler handles user APIs
 type UserHandler struct {
-	db *mongo.Client
+	db db.DBClientInterface
 }
 
 // NewUserHandler initializes the handler
-func NewUserHandler(db *mongo.Client) *UserHandler {
+func NewUserHandler(db db.DBClientInterface) *UserHandler {
 	return &UserHandler{db: db}
 }
 

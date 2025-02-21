@@ -12,9 +12,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/middleware"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -26,7 +26,7 @@ var (
 
 // OnboardingHandler handles all onboarding-related requests
 type OnboardingHandler struct {
-	db *mongo.Client
+	db db.DBClientInterface
 }
 
 type onboardingRequest struct {
@@ -56,7 +56,7 @@ type claims struct {
 }
 
 // NewOnboardingHandler initializes the onboarding subhandler
-func NewOnboardingHandler(db *mongo.Client) *OnboardingHandler {
+func NewOnboardingHandler(db db.DBClientInterface) *OnboardingHandler {
 	return &OnboardingHandler{db: db}
 }
 
@@ -75,35 +75,36 @@ func (h *OnboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "onboard":
 		h.OnboardTenant(w, r)
 	default:
-		http.Error(w, "Invalid Onboarding API", http.StatusNotFound)
+		respondWithError(w, http.StatusNotFound, "Invalid Onboarding API")
 	}
 }
 
 // OnboardTenant handles onboarding requests
 func (h *OnboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
 	}
 	var req onboardingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	if req.OrganizationName == "" || req.Email == "" {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	requestId := uuid.New().String()
 	tenantId := uuid.New().String()
 	userId := uuid.New().String()
 
-	collection := h.db.Database("coredb").Collection("onboarding_requests")
-	existingReq := collection.FindOne(r.Context(), map[string]string{"email": req.Email})
-	if existingReq.Err() == nil {
-		http.Error(w, "Onboarding request already exists", http.StatusConflict)
+	filter := bson.M{"email": req.Email}
+	existingReq, err := h.db.Read(r.Context(), filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	if err == nil && existingReq != nil {
+		respondWithError(w, http.StatusConflict, "Onboarding request already exists")
 		return
 	}
+
 	reqData := &entityMetadata{
 		OrganizationName: req.OrganizationName,
 		Email:            req.Email,
@@ -116,11 +117,25 @@ func (h *OnboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request
 		GeoLocation:      "",
 		Entitlements:     "",
 	}
-	_, err := collection.InsertOne(r.Context(), reqData)
+
+	dataMap := map[string]interface{}{
+		"organization_name": reqData.OrganizationName,
+		"email":             reqData.Email,
+		"status":            reqData.Status,
+		"username":          reqData.Username,
+		"tenant_id":         reqData.TenantID,
+		"created_at":        reqData.CreatedAt,
+		"request_id":        reqData.RequestID,
+		"geo_location":      reqData.GeoLocation,
+		"entitlements":      reqData.Entitlements,
+		"role":              reqData.Role,
+	}
+	_, err = h.db.Create(r.Context(), dataMap, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
 	if err != nil {
-		http.Error(w, "Failed to onboard tenant", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Failed to onboard tenant")
 		return
 	}
+
 	logger.Info("Onboarding request submitted", zap.String("request_id", requestId))
 	json.NewEncoder(w).Encode(map[string]string{
 		"message":    "Onboarding request submitted, pending approval",
@@ -131,28 +146,23 @@ func (h *OnboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request
 // GetPendingRequests fetches pending onboarding requests
 func (h *OnboardingHandler) GetPendingRequests(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
 	}
 	token := r.Header.Get("Authorization")
 	if token == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	if !validateServiceToken(w, token) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	collection := h.db.Database("coredb").Collection("onboarding_requests")
-	cursor, err := collection.Find(r.Context(), bson.M{"status": "pending"})
+
+	filter := bson.M{"status": "pending"}
+	requests, err := h.db.ReadAll(r.Context(), filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
 	if err != nil {
-		http.Error(w, "Failed to fetch pending requests", http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(r.Context())
-	var requests []bson.M
-	if err := cursor.All(r.Context(), &requests); err != nil {
-		http.Error(w, "Failed to fetch pending requests", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Failed to fetch pending requests")
 		return
 	}
 	json.NewEncoder(w).Encode(requests)
@@ -161,48 +171,63 @@ func (h *OnboardingHandler) GetPendingRequests(w http.ResponseWriter, r *http.Re
 // ApproveOnboarding approves onboarding requests
 func (h *OnboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
 	}
 	token := r.Header.Get("Authorization")
 	if token == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	if !validateServiceToken(w, token) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	var req struct {
 		RequestID string `json:"request_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	if req.RequestID == "" {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	collection := h.db.Database("coredb").Collection("onboarding_requests")
-	entitlementsCollection := h.db.Database("coredb").Collection("onboarded_tenants")
-	var request bson.M
-	err := collection.FindOne(r.Context(), bson.M{"request_id": req.RequestID, "status": "pending"}).Decode(&request)
-	if err != nil {
-		http.Error(w, "Invalid request ID", http.StatusBadRequest)
+
+	filter := bson.M{"request_id": req.RequestID, "status": "pending"}
+	request, err := h.db.Read(r.Context(), filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	if err != nil || request == nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request ID")
 		return
 	}
+
+	requestMap, ok := request.(map[string]interface{})
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "Failed to process request data")
+		return
+	}
+
 	password := generateRandomPassword()
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	request["password"] = string(hashedPassword)
-	request["status"] = "active"
-	_, err = entitlementsCollection.InsertOne(context.Background(), request)
+	requestMap["password"] = string(hashedPassword)
+	requestMap["status"] = "active"
+
+	// Insert approved request
+	_, err = h.db.Create(context.Background(), requestMap, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarded_tenants"))
 	if err != nil {
-		http.Error(w, "Failed to approve request", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Failed to approve request")
 		return
 	}
-	_, _ = collection.DeleteOne(context.Background(), bson.M{"request_id": req.RequestID})
-	log.Printf("Sending admin credentials: Email: %s, User ID: %s, Password: %s", request["email"], request["userid"], password)
+
+	// Delete the old pending request
+	_, err = h.db.Delete(context.Background(), filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to approve request")
+		return
+	}
+
+	log.Printf("Sending admin credentials: Email: %s, User ID: %s, Password: %s", requestMap["email"], requestMap["userid"], password)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Onboarding request approved, credentials sent"})
 }
 
@@ -217,12 +242,12 @@ func GetLoggerFromContext(r *http.Request) *zap.Logger {
 func validateServiceToken(w http.ResponseWriter, tokenString string) bool {
 	ownerClaims, err := validateToken(tokenString)
 	if err != nil {
-		http.Error(w, "Invalid owner token", http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Invalid owner token")
 		return false
 	}
 	log.Printf("%s", ownerClaims.Role)
 	if ownerClaims.Role != "superuser" {
-		http.Error(w, "Unauthorized: Only service owners can view/approve", http.StatusForbidden)
+		respondWithError(w, http.StatusForbidden, "Unauthorized: Only superusers can view/approve")
 		return false
 	}
 	return true
@@ -252,4 +277,10 @@ func generateRandomPassword() string {
 		b[i] = charset[int(b[i])%len(charset)]
 	}
 	return string(b)
+}
+
+func respondWithError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"message": message})
 }
