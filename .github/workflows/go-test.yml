@@ -11,36 +11,64 @@ on:
       - develop
 
 jobs:
-  test:
-    name: Run Go Tests with Coverage
+  # test-auth-service:
+  #   name: Run Tests for Auth Service
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.23.3'  # Use Go version from your go.mod
+
+  #     - name: Install dependencies
+  #       run: go mod tidy
+  #       working-directory: auth-service
+
+  #     - name: Run Unit Tests with Coverage
+  #       run: go test -coverprofile=coverage.out ./...
+  #       working-directory: auth-service
+
+  #     - name: Display Code Coverage in Logs
+  #       run: go tool cover -func=coverage.out
+  #       working-directory: auth-service
+
+  #     - name: Upload Coverage Report for Auth Service
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: auth-service-coverage
+  #         path: auth-service/coverage.out
+
+  test-core-service:
+    name: Run Tests for Core Service
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Set up Go environment with the specified version
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.3' # Use the Go version from go.mod
+          go-version: '1.23.3'  # Use Go version from your go.mod
 
-      # Install dependencies
       - name: Install dependencies
         run: go mod tidy
+        working-directory: core-service
 
-      # Run tests with coverage profile
       - name: Run Unit Tests with Coverage
         run: go test -coverprofile=coverage.out ./...
+        working-directory: core-service
 
-      # Display the coverage results in the log
       - name: Display Code Coverage in Logs
         run: go tool cover -func=coverage.out
+        working-directory: core-service
 
-      # Upload the coverage report as an artifact
-      - name: Upload Coverage Report as an Artifact
+      - name: Upload Coverage Report for Core Service
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage.out
+          name: core-service-coverage
+          path: core-service/coverage.out
