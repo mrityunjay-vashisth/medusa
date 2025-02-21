@@ -6,16 +6,16 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AuthHandler struct {
 	client authpb.AuthServiceClient
-	db     *mongo.Client
+	db     db.DBClientInterface
 }
 
-func NewAuthHandler(db *mongo.Client, client authpb.AuthServiceClient) *AuthHandler {
+func NewAuthHandler(db db.DBClientInterface, client authpb.AuthServiceClient) *AuthHandler {
 	return &AuthHandler{
 		db:     db,
 		client: client,

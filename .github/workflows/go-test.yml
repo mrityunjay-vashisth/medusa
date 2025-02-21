@@ -1,0 +1,46 @@
+name: Go Test and Code Coverage
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    name: Run Go Tests with Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Go environment with the specified version
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.3' # Use the Go version from go.mod
+
+      # Install dependencies
+      - name: Install dependencies
+        run: go mod tidy
+
+      # Run tests with coverage profile
+      - name: Run Unit Tests with Coverage
+        run: go test -coverprofile=coverage.out ./...
+
+      # Display the coverage results in the log
+      - name: Display Code Coverage in Logs
+        run: go tool cover -func=coverage.out
+
+      # Upload the coverage report as an artifact
+      - name: Upload Coverage Report as an Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out

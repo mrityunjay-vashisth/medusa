@@ -4,10 +4,10 @@ import (
 	"log"
 
 	"github.com/gorilla/mux"
+	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers"
 	"github.com/mrityunjay-vashisth/core-service/internal/middleware"
 	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +25,7 @@ type APIServer struct {
 }
 
 // NewAPIServer loads `registry.json` and registers API routes
-func NewAPIServer(db *mongo.Client, authClient authpb.AuthServiceClient) *APIServer {
+func NewAPIServer(db db.DBClientInterface, authClient authpb.AuthServiceClient) *APIServer {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
