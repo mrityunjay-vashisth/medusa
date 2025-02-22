@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
-	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
+	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"go.uber.org/zap"
 )
 
 // MainHandler manages subhandlers dynamically
@@ -16,11 +17,11 @@ type MainHandler struct {
 }
 
 // NewMainHandler initializes subhandlers
-func NewMainHandler(db db.DBClientInterface, authClient authpb.AuthServiceClient) *MainHandler {
+func NewMainHandler(db db.DBClientInterface, newServices *services.ServiceTypes, logger *zap.Logger) *MainHandler {
 	return &MainHandler{
 		UserHandler:       NewUserHandler(db),
-		OnboardingHandler: NewOnboardingHandler(db),
-		AuthHandler:       NewAuthHandler(db, authClient),
+		OnboardingHandler: NewOnboardingHandler(newServices.OnboardingService, logger),
+		AuthHandler:       NewAuthHandler(db, newServices.AuthService.GetClient()),
 	}
 }
 

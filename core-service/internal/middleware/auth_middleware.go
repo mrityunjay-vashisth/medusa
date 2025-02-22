@@ -6,17 +6,33 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mrityunjay-vashisth/core-service/internal/services"
 	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 )
 
 // ConditionalAuthMiddleware applies authentication only to protected routes
-func ConditionalAuthMiddleware(authClient authpb.AuthServiceClient, publicRoutes []string) func(http.Handler) http.Handler {
+func ConditionalAuthMiddleware(registeredServices *services.ServiceTypes, publicRoutes []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authClient := registeredServices.AuthService.GetClient()
 			// Skip authentication for public routes
 			if isPublicRoute(r.URL.Path, publicRoutes) {
 				next.ServeHTTP(w, r)
 				return
+			}
+
+			sessionService := registeredServices.SessionService
+			sessionToken := r.Header.Get("X-Session-Token")
+			if sessionToken != "" {
+				session, err := sessionService.GetSession(sessionToken)
+				if err == nil {
+					// sessionService.RefreshSession()
+					ctx := context.WithValue(r.Context(), "userID", session.UserID)
+					ctx = context.WithValue(ctx, "role", session.Role)
+					ctx = context.WithValue(ctx, "tenantID", session.TenantID)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
 			}
 
 			// Extract token from Authorization header

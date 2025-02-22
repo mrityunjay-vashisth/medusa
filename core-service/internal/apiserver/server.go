@@ -7,7 +7,7 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers"
 	"github.com/mrityunjay-vashisth/core-service/internal/middleware"
-	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
+	"github.com/mrityunjay-vashisth/core-service/internal/services"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +25,7 @@ type APIServer struct {
 }
 
 // NewAPIServer loads `registry.json` and registers API routes
-func NewAPIServer(db db.DBClientInterface, authClient authpb.AuthServiceClient) *APIServer {
+func NewAPIServer(db db.DBClientInterface, registeredServices *services.ServiceTypes) *APIServer {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
@@ -42,7 +42,7 @@ func NewAPIServer(db db.DBClientInterface, authClient authpb.AuthServiceClient) 
 	}
 
 	// Initialize handlers
-	mainHandler := handlers.NewMainHandler(db, authClient)
+	mainHandler := handlers.NewMainHandler(db, registeredServices, logger)
 
 	// Loop through `registry.json` and create API groups dynamically
 	for group, versions := range registry {
@@ -64,10 +64,10 @@ func NewAPIServer(db db.DBClientInterface, authClient authpb.AuthServiceClient) 
 			}
 		}
 	}
-
+	// authClient := newServices.AuthService.GetClient()
 	// Apply middleware
 	server.Router.Use(middleware.LoggingMiddleware(logger))
-	server.Router.Use(middleware.ConditionalAuthMiddleware(authClient, publicRoutes))
+	server.Router.Use(middleware.ConditionalAuthMiddleware(registeredServices, publicRoutes))
 	log.Println("API Server started on /apis/core/v1")
 	return server
 }
