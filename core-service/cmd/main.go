@@ -26,13 +26,14 @@ func main() {
 	if err := dbClient.Connect(ctx); err != nil {
 		log.Fatal(err)
 	}
+	authService := services.NewAuthService("192.168.1.14:50051")
+	onboardingService := services.NewOnboardingService(dbClient, nil)
 
-	// dbclient, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://192.168.1.12:27017"))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	authClient := services.NewAuthClient("192.168.1.14:50051").GetClient()
-	apiServer := apiserver.NewAPIServer(dbClient, authClient)
+	newServices := &services.ServiceTypes{
+		AuthService:       authService,
+		OnboardingService: onboardingService,
+	}
+	apiServer := apiserver.NewAPIServer(dbClient, newServices)
 
 	log.Println("Core API Server running on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", apiServer.Router))
