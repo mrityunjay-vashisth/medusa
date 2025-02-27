@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
+	"github.com/mrityunjay-vashisth/go-idforge/pkg/idforge"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -33,54 +33,58 @@ func (h *OnboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 	if req.OrganizationName == "" || req.Email == "" {
 		return "", errors.New("invalid request body")
 	}
-	requestId := uuid.New().String()
-	tenantId := uuid.New().String()
-	userId := uuid.New().String()
+	requestId := idforge.GenerateWithSize(20)
+	tenantId := idforge.GenerateWithSize(10)
+	userId := idforge.GenerateWithSize(10)
 
 	filter := bson.M{"email": req.Email}
-	existingReq, err := h.db.Read(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
-	h.Logger.Info("response", zap.Any("ex", existingReq))
+	existingReq, err := h.db.Read(ctx, filter,
+		db.WithDatabaseName("coredb"),
+		db.WithCollectionName("onboarding_requests"))
+
 	// First check for database errors
 	if err != nil {
 		h.Logger.Error("Database error", zap.Error(err))
 		return "", errors.New("database error while checking for existing requests")
 	}
 
-	// Then check if a request exists
 	if existingReq != nil {
-		// Need to determine how your DB client represents "no results"
-		// For MongoDB, it might return a non-nil map with no entries
 		if reqMap, ok := existingReq.(map[string]interface{}); ok && len(reqMap) > 0 {
 			return "", errors.New("onboarding request already exists")
 		}
 	}
 
-	reqData := &models.EntityMetadata{
-		OrganizationName: req.OrganizationName,
-		Email:            req.Email,
-		Status:           "pending",
-		Username:         userId,
-		TenantID:         tenantId,
-		CreatedAt:        time.Now().String(),
-		RequestID:        requestId,
-		Role:             req.Role,
-		GeoLocation:      "",
-		Entitlements:     "",
+	existingReq, err = h.db.Read(ctx, filter,
+		db.WithDatabaseName("coredb"),
+		db.WithCollectionName("onboarded_tenants"))
+
+	// First check for database errors
+	if err != nil {
+		h.Logger.Error("Database error", zap.Error(err))
+		return "", errors.New("database error while checking for existing requests")
+	}
+
+	if existingReq != nil {
+		if reqMap, ok := existingReq.(map[string]interface{}); ok && len(reqMap) > 0 {
+			return "", errors.New("onboarding request already exists")
+		}
 	}
 
 	dataMap := map[string]interface{}{
-		"organization_name": reqData.OrganizationName,
-		"email":             reqData.Email,
-		"status":            reqData.Status,
-		"username":          reqData.Username,
-		"tenant_id":         reqData.TenantID,
-		"created_at":        reqData.CreatedAt,
-		"request_id":        reqData.RequestID,
-		"geo_location":      reqData.GeoLocation,
-		"entitlements":      reqData.Entitlements,
-		"role":              reqData.Role,
+		"organization_name": req.OrganizationName,
+		"email":             req.Email,
+		"status":            "pending",
+		"username":          userId,
+		"tenant_id":         tenantId,
+		"created_at":        time.Now().String(),
+		"request_id":        requestId,
+		"role":              req.Role,
+		"geo_location":      "",
+		"entitlements":      "",
 	}
-	_, err = h.db.Create(ctx, dataMap, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	_, err = h.db.Create(ctx, dataMap,
+		db.WithDatabaseName("coredb"),
+		db.WithCollectionName("onboarding_requests"))
 	if err != nil {
 		return "", errors.New("failed to onboard tenant")
 	}
@@ -99,36 +103,70 @@ func (h *OnboardingService) GetPendingRequests(ctx context.Context) (interface{}
 	return requests, nil
 }
 
-// ApproveOnboarding approves onboarding requests
 func (h *OnboardingService) ApproveOnboarding(ctx context.Context, requestID string) error {
 	filter := bson.M{"request_id": requestID, "status": "pending"}
 	request, err := h.db.Read(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
-	if err != nil || request == nil {
-		return errors.New("invalid request ID")
+
+	// Check if request is nil regardless of error
+	if request == nil {
+		h.Logger.Warn("Request is nil", zap.Error(err), zap.String("request_id", requestID))
+		return errors.New("no pending request found with the given ID")
 	}
+
+	// Now let's explicitly handle empty map case
 	requestMap, ok := request.(map[string]interface{})
 	if !ok {
-		return errors.New("failed to process request data")
+		h.Logger.Error("Failed to convert request to map", zap.Any("request", request))
+		return errors.New("failed to process request data: type conversion failed")
 	}
 
+	// Check if the map is empty
+	if len(requestMap) == 0 {
+		h.Logger.Error("Request map is empty", zap.Any("request", request))
+		return errors.New("failed to process request data: empty data returned")
+	}
+
+	// Create a completely new map to be safe
+	newRequestMap := make(map[string]interface{})
+
+	// Copy all existing fields
+	for k, v := range requestMap {
+		newRequestMap[k] = v
+	}
+
+	// Generate password
 	password := generateRandomPassword()
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	requestMap["password"] = string(hashedPassword)
-	requestMap["status"] = "active"
-
-	// Insert approved request
-	_, err = h.db.Create(context.Background(), requestMap, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarded_tenants"))
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
+		h.Logger.Error("Failed to hash password", zap.Error(err))
+		return errors.New("failed to process credentials")
+	}
+
+	// Add new fields to the new map
+	newRequestMap["password"] = string(hashedPassword)
+	newRequestMap["status"] = "active"
+	newRequestMap["approved_at"] = time.Now().String()
+
+	// Insert as approved tenant
+	_, err = h.db.Create(ctx, newRequestMap, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarded_tenants"))
+	if err != nil {
+		h.Logger.Error("Failed to create approved tenant", zap.Error(err))
 		return errors.New("failed to approve request")
 	}
 
-	// Delete the old pending request
-	_, err = h.db.Delete(context.Background(), filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	// Delete pending request
+	_, err = h.db.Delete(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
 	if err != nil {
-		return errors.New("failed to approve request")
+		h.Logger.Error("Failed to delete pending request", zap.Error(err))
+		// Continue despite error
 	}
 
-	h.Logger.Info("Sending admin credentials:", zap.String("Email", requestMap["email"].(string)), zap.String("userid", requestMap["userid"].(string)))
+	h.Logger.Info("Credentials prepared for",
+		zap.String("email", newRequestMap["email"].(string)),
+		zap.String("username", newRequestMap["username"].(string)),
+		zap.String("request_id", newRequestMap["request_id"].(string)),
+		zap.String("password", password))
+
 	return nil
 }
 

@@ -72,6 +72,12 @@ func (s *authService) Login(ctx context.Context, req *authpb.LoginRequest) (*aut
 	if err != nil {
 		return nil, errors.New("invalid username or password")
 	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(req.Password))
+	if err != nil {
+		return nil, errors.New("invalid username or password")
+	}
+
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &claims{
 		Username: u.Username,

@@ -21,7 +21,7 @@ func main() {
 	defer cancel()
 
 	var err error
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://192.168.1.12:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://192.168.1.14:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}

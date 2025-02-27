@@ -6,9 +6,10 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/mrityunjay-vashisth/go-idforge v0.0.0-20250227191847-9a80b7ae6869
 	github.com/mrityunjay-vashisth/medusa-proto v0.0.0-20250217124647-d8ade84292ae
 	github.com/rs/cors v1.11.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.31.0

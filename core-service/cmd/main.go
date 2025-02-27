@@ -37,7 +37,7 @@ func main() {
 	apiServer := apiserver.NewAPIServer(dbClient, newServices)
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"}, // Your React app's URL
+		AllowedOrigins:   []string{}, // Your React app's URL
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Session-Token"},
 		AllowCredentials: true,
