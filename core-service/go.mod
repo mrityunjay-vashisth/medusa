@@ -7,6 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/mrityunjay-vashisth/medusa-proto v0.0.0-20250217124647-d8ade84292ae
+	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.9.0
 	go.mongodb.org/mongo-driver v1.17.2
 	go.uber.org/zap v1.27.0

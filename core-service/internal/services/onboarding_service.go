@@ -39,8 +39,20 @@ func (h *OnboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 
 	filter := bson.M{"email": req.Email}
 	existingReq, err := h.db.Read(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
-	if err == nil && existingReq != nil {
-		return "", errors.New("onboarding request already exists")
+	h.Logger.Info("response", zap.Any("ex", existingReq))
+	// First check for database errors
+	if err != nil {
+		h.Logger.Error("Database error", zap.Error(err))
+		return "", errors.New("database error while checking for existing requests")
+	}
+
+	// Then check if a request exists
+	if existingReq != nil {
+		// Need to determine how your DB client represents "no results"
+		// For MongoDB, it might return a non-nil map with no entries
+		if reqMap, ok := existingReq.(map[string]interface{}); ok && len(reqMap) > 0 {
+			return "", errors.New("onboarding request already exists")
+		}
 	}
 
 	reqData := &models.EntityMetadata{

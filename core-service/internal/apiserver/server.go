@@ -15,6 +15,7 @@ import (
 var publicRoutes = []string{
 	"/apis/core/v1/auth/login",
 	"/apis/core/v1/auth/register",
+	"/apis/core/v1/onboarding/onboard",
 	"/openapi/v2",
 }
 
@@ -43,6 +44,8 @@ func NewAPIServer(db db.DBClientInterface, registeredServices *services.ServiceT
 
 	// Initialize handlers
 	mainHandler := handlers.NewMainHandler(db, registeredServices, logger)
+
+	registeredServices.OnboardingService.Logger = logger
 
 	// Loop through `registry.json` and create API groups dynamically
 	for group, versions := range registry {
