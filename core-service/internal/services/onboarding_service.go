@@ -15,23 +15,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type OnboardingServices interface {
+type OnboardingServicesInterface interface {
 	OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error)
 	GetTenants(ctx context.Context, status string) (interface{}, error)
 	GetTenantByID(ctx context.Context, id string) (interface{}, error)
 	ApproveOnboarding(ctx context.Context, requestID string) error
 }
 
-type OnboardingService struct {
+type onboardingService struct {
 	db     db.DBClientInterface
 	Logger *zap.Logger
 }
 
-func NewOnboardingService(db db.DBClientInterface, logger *zap.Logger) *OnboardingService {
-	return &OnboardingService{db: db, Logger: logger}
+func NewOnboardingService(db db.DBClientInterface, logger *zap.Logger) *onboardingService {
+	return &onboardingService{db: db, Logger: logger}
 }
 
-func (h *OnboardingService) OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error) {
+func (h *onboardingService) OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error) {
 	if req.OrganizationName == "" || req.Email == "" {
 		return "", errors.New("invalid request body")
 	}
@@ -96,7 +96,7 @@ func (h *OnboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 }
 
 // GetPendingRequests fetches pending onboarding requests
-func (h *OnboardingService) GetTenants(ctx context.Context, status string) (interface{}, error) {
+func (h *onboardingService) GetTenants(ctx context.Context, status string) (interface{}, error) {
 	var filter bson.M
 	var dbName string
 	var collectionName string
@@ -117,7 +117,7 @@ func (h *OnboardingService) GetTenants(ctx context.Context, status string) (inte
 }
 
 // GetPendingRequests fetches pending onboarding requests
-func (h *OnboardingService) GetTenantByID(ctx context.Context, id string) (interface{}, error) {
+func (h *onboardingService) GetTenantByID(ctx context.Context, id string) (interface{}, error) {
 	filter := bson.M{"request_id": id}
 	requests, err := h.db.Read(ctx, filter, db.WithDatabaseName(config.Medusa_Core), db.WithCollectionName(config.Onboarded_Tenants))
 	h.Logger.Info("req", zap.Any("req", requests))
@@ -127,7 +127,7 @@ func (h *OnboardingService) GetTenantByID(ctx context.Context, id string) (inter
 	return requests, nil
 }
 
-func (h *OnboardingService) ApproveOnboarding(ctx context.Context, requestID string) error {
+func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID string) error {
 	filter := bson.M{"request_id": requestID, "status": "pending"}
 	request, err := h.db.Read(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
 
@@ -195,7 +195,7 @@ func (h *OnboardingService) ApproveOnboarding(ctx context.Context, requestID str
 }
 
 // GetPendingRequests fetches pending onboarding requests
-func (h *OnboardingService) GetActiveOrg(ctx context.Context) (interface{}, error) {
+func (h *onboardingService) GetActiveOrg(ctx context.Context) (interface{}, error) {
 	filter := bson.M{"status": "active"}
 	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(config.Medusa_Core), db.WithCollectionName(config.Onboarding_Requests))
 	if err != nil {

@@ -22,12 +22,12 @@ type AuthService struct {
 }
 
 // NewAuthClient initializes gRPC client connection
-func NewAuthService(authServiceAddr string) *AuthService {
+func NewAuthService(authServiceAddr string, logger *zap.Logger) *AuthService {
 	conn, err := grpc.Dial(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to auth-service: %v", err)
 	}
-	return &AuthService{client: authpb.NewAuthServiceClient(conn)}
+	return &AuthService{client: authpb.NewAuthServiceClient(conn), Logger: logger}
 }
 
 func (a *AuthService) Login(ctx context.Context, username, password string) (*authpb.LoginResponse, error) {

@@ -16,14 +16,22 @@ import (
 
 var jwtKey = []byte("my-secret-key")
 
+type OnboardingHandlerInterface interface {
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
+	OnboardTenant(w http.ResponseWriter, r *http.Request)
+	GetTenants(w http.ResponseWriter, r *http.Request)
+	GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string)
+	ApproveOnboarding(w http.ResponseWriter, r *http.Request)
+}
+
 // OnboardingHandler handles all onboarding-related requests
-type OnboardingHandler struct {
-	Service services.OnboardingServices
+type onboardingHandler struct {
+	Service services.OnboardingServicesInterface
 	Logger  *zap.Logger
 }
 
-func NewOnboardingHandler(service services.OnboardingServices, logger *zap.Logger) *OnboardingHandler {
-	return &OnboardingHandler{Service: service, Logger: logger}
+func NewOnboardingHandler(service services.OnboardingServicesInterface, logger *zap.Logger) OnboardingHandlerInterface {
+	return &onboardingHandler{Service: service, Logger: logger}
 }
 
 /*
@@ -43,7 +51,7 @@ PATCH  	/tenants/approve/{id}
 */
 
 // ServeHTTP routes requests to onboarding-specific functions
-func (h *OnboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	h.Logger.Info("Onboarding API", zap.String("action", vars["action"]))
 	h.Logger.Info("Onboarding API", zap.String("id", vars["id"]))
@@ -83,7 +91,7 @@ func (h *OnboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // OnboardTenant handles onboarding requests
-func (h *OnboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request) {
+func (h *onboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
@@ -108,7 +116,7 @@ func (h *OnboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request
 }
 
 // GetPendingRequests fetches pending onboarding requests
-func (h *OnboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
+func (h *onboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
@@ -130,18 +138,14 @@ func (h *OnboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests)
 }
 
-func (h *OnboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string) {
-	if r.Method != http.MethodGet {
-		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
-		return
-	}
+func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string) {
 	token := r.Header.Get("Authorization")
 	if token == "" {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		h.Logger.Info("Empty token received")
 		return
 	}
 	if !validateServiceToken(w, token) {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		h.Logger.Info("Token validation failed")
 		return
 	}
 	requests, err := h.Service.GetTenantByID(r.Context(), id)
@@ -153,7 +157,7 @@ func (h *OnboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.
 }
 
 // ApproveOnboarding approves onboarding requests
-func (h *OnboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Request) {
+func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return

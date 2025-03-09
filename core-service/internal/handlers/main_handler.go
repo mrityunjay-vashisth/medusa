@@ -10,31 +10,47 @@ import (
 	"go.uber.org/zap"
 )
 
+type HandlerManagerInterface interface {
+	GetSubHandler(name string) http.HandlerFunc
+}
+
 // MainHandler manages subhandlers dynamically
-type MainHandler struct {
-	UserHandler       *UserHandler
-	OnboardingHandler *OnboardingHandler
-	AuthHandler       *AuthHandler
+type handlerManager struct {
+	adminHandler      AdminHandlerInterface
+	onboardingHandler OnboardingHandlerInterface
+	authHandler       AuthHandlerInterface
 }
 
 // NewMainHandler initializes subhandlers
-func NewMainHandler(db db.DBClientInterface, newServices *services.Container, logger *zap.Logger) *MainHandler {
-	return &MainHandler{
-		UserHandler:       NewUserHandler(db),
-		OnboardingHandler: NewOnboardingHandler(newServices.OnboardingService, logger),
-		AuthHandler:       NewAuthHandler(newServices.AuthService, logger),
+func NewMainHandler(db db.DBClientInterface, newServices services.ServiceManagerInterface, logger *zap.Logger) HandlerManagerInterface {
+	return &handlerManager{
+		adminHandler:      NewAdminHandler(newServices.GetAdminService(), logger),
+		onboardingHandler: NewOnboardingHandler(newServices.GetOnboardingService(), logger),
+		authHandler:       NewAuthHandler(newServices.GetAuthService(), logger),
 	}
 }
 
+func (hm *handlerManager) getAuthHandler() AuthHandlerInterface {
+	return hm.authHandler
+}
+
+func (hm *handlerManager) getOnboardingHanlder() OnboardingHandlerInterface {
+	return hm.onboardingHandler
+}
+
+func (hm *handlerManager) getAdminHandler() AdminHandlerInterface {
+	return hm.adminHandler
+}
+
 // GetSubHandler returns the appropriate subhandler
-func (h *MainHandler) GetSubHandler(name string) http.HandlerFunc {
+func (h *handlerManager) GetSubHandler(name string) http.HandlerFunc {
 	switch name {
-	case "UserHandler":
-		return h.UserHandler.ServeHTTP
 	case "TenantHandler":
-		return h.OnboardingHandler.ServeHTTP
+		onboardingHandler := h.getOnboardingHanlder()
+		return onboardingHandler.ServeHTTP
 	case "AuthHandler":
-		return h.AuthHandler.ServeHTTP
+		authHandler := h.getAuthHandler()
+		return authHandler.ServeHTTP
 	default:
 		log.Printf("Unknown handler: %s", name)
 		return nil

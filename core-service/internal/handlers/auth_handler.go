@@ -9,17 +9,23 @@ import (
 	"go.uber.org/zap"
 )
 
-type AuthHandler struct {
+type AuthHandlerInterface interface {
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
+	Login(w http.ResponseWriter, r *http.Request)
+	Register(w http.ResponseWriter, r *http.Request)
+}
+
+type authHandler struct {
 	Service services.AuthServices
 	Logger  *zap.Logger
 }
 
-func NewAuthHandler(service services.AuthServices, logger *zap.Logger) *AuthHandler {
-	return &AuthHandler{Service: service, Logger: logger}
+func NewAuthHandler(service services.AuthServices, logger *zap.Logger) AuthHandlerInterface {
+	return &authHandler{Service: service, Logger: logger}
 }
 
 // ServeHTTP routes requests
-func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	h.Logger.Info("Auth API", zap.String("subpath", vars["subpath"]))
 	subPath := vars["subpath"]
@@ -34,7 +40,7 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -61,6 +67,6 @@ func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (a *authHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// handle reg request
 }

@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
-type SessionServices interface {
+type SessionServicesInterface interface {
 	CreateSession(claims *models.UserClaims) (string, error)
-	GetSession(token string) (*models.Session, error)
-	RefreshSession()
-	DeleteSession()
+	// GetSession(token string) (*models.Session, error)
+	// RefreshSession()
+	// DeleteSession()
 }
 
 type SessionService struct {
@@ -23,7 +23,7 @@ type SessionService struct {
 	Logger *zap.Logger
 }
 
-func NewSessionService(db db.DBClientInterface, logger *zap.Logger) *SessionService {
+func NewSessionService(db db.DBClientInterface, logger *zap.Logger) SessionServicesInterface {
 	return &SessionService{db: db, Logger: logger}
 }
 

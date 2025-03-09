@@ -11,29 +11,30 @@ import (
 )
 
 // ConditionalAuthMiddleware applies authentication only to protected routes
-func ConditionalAuthMiddleware(registeredServices *services.Container, publicRoutes []string) func(http.Handler) http.Handler {
+func ConditionalAuthMiddleware(registeredServices services.ServiceManagerInterface, publicRoutes []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authClient := registeredServices.AuthService.GetClient()
+			authService := registeredServices.GetAuthService()
+			authClient := authService.GetClient()
 			// Skip authentication for public routes
 			if isPublicRoute(r.URL.Path, publicRoutes) {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			sessionService := registeredServices.SessionService
-			sessionToken := r.Header.Get("X-Session-Token")
-			if sessionToken != "" {
-				session, err := sessionService.GetSession(sessionToken)
-				if err == nil {
-					// sessionService.RefreshSession()
-					ctx := context.WithValue(r.Context(), "userID", session.UserID)
-					ctx = context.WithValue(ctx, "role", session.Role)
-					ctx = context.WithValue(ctx, "tenantID", session.TenantID)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
-			}
+			// sessionService := registeredServices.GetSessionService()
+			// sessionToken := r.Header.Get("X-Session-Token")
+			// if sessionToken != "" {
+			// 	session, err := sessionService.GetSession(sessionToken)
+			// 	if err == nil {
+			// 		// sessionService.RefreshSession()
+			// 		ctx := context.WithValue(r.Context(), "userID", session.UserID)
+			// 		ctx = context.WithValue(ctx, "role", session.Role)
+			// 		ctx = context.WithValue(ctx, "tenantID", session.TenantID)
+			// 		next.ServeHTTP(w, r.WithContext(ctx))
+			// 		return
+			// 	}
+			// }
 
 			// Extract token from Authorization header
 			token := r.Header.Get("Authorization")
