@@ -8,6 +8,12 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 )
 
+type UserHandlerInterface interface {
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
+	CreateUser(w http.ResponseWriter, r *http.Request)
+	GetUser(w http.ResponseWriter, r *http.Request)
+}
+
 // UserHandler handles user APIs
 type UserHandler struct {
 	db db.DBClientInterface

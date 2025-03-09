@@ -17,11 +17,7 @@
         "methods": ["GET"],
         "subhandler": "UserHandler"
       },
-      "/auth/login": {
-        "methods": ["POST"],
-        "subhandler": "AuthHandler"
-      },
-      "/auth/register": {
+      "/auth/{subpath}": {
         "methods": ["POST"],
         "subhandler": "AuthHandler"
       }

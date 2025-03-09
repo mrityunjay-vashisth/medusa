@@ -26,12 +26,7 @@ type APIServer struct {
 }
 
 // NewAPIServer loads `registry.json` and registers API routes
-func NewAPIServer(db db.DBClientInterface, registeredServices *services.Container) *APIServer {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
-	}
-	defer logger.Sync()
+func NewAPIServer(db db.DBClientInterface, registeredServices services.ServiceManagerInterface, logger *zap.Logger) *APIServer {
 	server := &APIServer{
 		Router: mux.NewRouter(),
 		Logger: logger,
@@ -44,9 +39,6 @@ func NewAPIServer(db db.DBClientInterface, registeredServices *services.Containe
 
 	// Initialize handlers
 	mainHandler := handlers.NewMainHandler(db, registeredServices, logger)
-
-	registeredServices.OnboardingService.Logger = logger
-	registeredServices.AuthService.Logger = logger
 
 	// Loop through `registry.json` and create API groups dynamically
 	for group, versions := range registry {

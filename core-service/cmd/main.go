@@ -10,6 +10,7 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/services"
 	"github.com/rs/cors"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -27,14 +28,15 @@ func main() {
 	if err := dbClient.Connect(ctx); err != nil {
 		log.Fatal(err)
 	}
-	authService := services.NewAuthService("192.168.1.17:50051")
-	onboardingService := services.NewOnboardingService(dbClient, nil)
 
-	newServices := &services.Container{
-		AuthService:       authService,
-		OnboardingService: onboardingService,
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	apiServer := apiserver.NewAPIServer(dbClient, newServices)
+	defer logger.Sync()
+
+	serviceMg := services.NewServiceManager(dbClient, logger)
+	apiServer := apiserver.NewAPIServer(dbClient, serviceMg, logger)
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{}, // Your React app's URL
