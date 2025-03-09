@@ -2,6 +2,7 @@ package adminsvc
 
 import (
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +37,7 @@ func (m *adminServiceManager) Department() DepartmentServicesInterface {
 	return m.departmentService
 }
 
-func NewAdminServiceManager(db db.DBClientInterface, logger *zap.Logger) AdminServiceManagerInterface {
+func NewService(db db.DBClientInterface, registry registry.ServiceRegistry, logger *zap.Logger) AdminServiceManagerInterface {
 	base := &baseService{
 		db:     db,
 		logger: logger,

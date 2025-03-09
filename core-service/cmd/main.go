@@ -42,7 +42,7 @@ func main() {
 	defer logger.Sync()
 
 	serviceMg := services.NewServiceManager(dbClient, logger)
-	apiServer := apiserver.NewAPIServer(dbClient, serviceMg, logger)
+	apiServer := apiserver.NewAPIServer(dbClient, serviceMg.GetRegistry(), logger)
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{}, // Your React app's URL

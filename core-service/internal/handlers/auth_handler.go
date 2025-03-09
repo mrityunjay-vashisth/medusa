@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
+	"github.com/mrityunjay-vashisth/core-service/internal/services/authsvc"
 	"go.uber.org/zap"
 )
 
@@ -16,18 +18,21 @@ type AuthHandlerInterface interface {
 }
 
 type authHandler struct {
-	Service services.AuthServices
-	Logger  *zap.Logger
+	registry registry.ServiceRegistry
+	logger   *zap.Logger
 }
 
-func NewAuthHandler(service services.AuthServices, logger *zap.Logger) AuthHandlerInterface {
-	return &authHandler{Service: service, Logger: logger}
+func NewAuthHandler(registry registry.ServiceRegistry, logger *zap.Logger) AuthHandlerInterface {
+	return &authHandler{
+		registry: registry,
+		logger:   logger,
+	}
 }
 
 // ServeHTTP routes requests
 func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	h.Logger.Info("Auth API", zap.String("subpath", vars["subpath"]))
+	h.logger.Info("Auth API", zap.String("subpath", vars["subpath"]))
 	subPath := vars["subpath"]
 
 	switch subPath {
@@ -40,6 +45,16 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getAuthService retrieves the auth service from the registry
+func (h *authHandler) getAuthService() (authsvc.Service, error) {
+	service, ok := h.registry.Get(registry.AuthService).(authsvc.Service)
+	if !ok {
+		h.logger.Error("Failed to get auth service from registry")
+		return nil, errors.New("internal service error")
+	}
+	return service, nil
+}
+
 func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
@@ -50,7 +65,14 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 		// http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	authResp, err := a.Service.Login(r.Context(), req.Username, req.Password)
+
+	authService, err := a.getAuthService()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		return
+	}
+
+	authResp, err := authService.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Internal server error")
 		return

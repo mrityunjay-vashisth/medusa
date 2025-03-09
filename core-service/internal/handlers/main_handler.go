@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
-	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"go.uber.org/zap"
 )
 
@@ -16,43 +15,30 @@ type HandlerManagerInterface interface {
 
 // MainHandler manages subhandlers dynamically
 type handlerManager struct {
-	adminHandler      AdminHandlerInterface
-	onboardingHandler OnboardingHandlerInterface
-	authHandler       AuthHandlerInterface
+	db       db.DBClientInterface
+	registry registry.ServiceRegistry
+	logger   *zap.Logger
 }
 
 // NewMainHandler initializes subhandlers
-func NewMainHandler(db db.DBClientInterface, newServices services.ServiceManagerInterface, logger *zap.Logger) HandlerManagerInterface {
+func NewMainHandler(db db.DBClientInterface, registry registry.ServiceRegistry, logger *zap.Logger) HandlerManagerInterface {
 	return &handlerManager{
-		adminHandler:      NewAdminHandler(newServices.GetAdminService(), logger),
-		onboardingHandler: NewOnboardingHandler(newServices.GetOnboardingService(), logger),
-		authHandler:       NewAuthHandler(newServices.GetAuthService(), logger),
+		db:       db,
+		registry: registry,
+		logger:   logger,
 	}
-}
-
-func (hm *handlerManager) getAuthHandler() AuthHandlerInterface {
-	return hm.authHandler
-}
-
-func (hm *handlerManager) getOnboardingHanlder() OnboardingHandlerInterface {
-	return hm.onboardingHandler
-}
-
-func (hm *handlerManager) getAdminHandler() AdminHandlerInterface {
-	return hm.adminHandler
 }
 
 // GetSubHandler returns the appropriate subhandler
 func (h *handlerManager) GetSubHandler(name string) http.HandlerFunc {
 	switch name {
 	case "TenantHandler":
-		onboardingHandler := h.getOnboardingHanlder()
-		return onboardingHandler.ServeHTTP
+		return NewOnboardingHandler(h.registry, h.logger).ServeHTTP
 	case "AuthHandler":
-		authHandler := h.getAuthHandler()
-		return authHandler.ServeHTTP
+		return NewAuthHandler(h.registry, h.logger).ServeHTTP
+
 	default:
-		log.Printf("Unknown handler: %s", name)
+		h.logger.Error("Unknown handler", zap.String("name", name))
 		return nil
 	}
 }

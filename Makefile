@@ -20,9 +20,11 @@ help:
 	@echo "${BLUE}Medusa Services Makefile${NC}"
 	@echo "${YELLOW}Available commands:${NC}"
 	@echo "  ${GREEN}build${NC}         - Build all service images"
+	@echo "  ${GREEN}build-nocache${NC} - Build all service images no cache"
 	@echo "  ${GREEN}build-auth${NC}    - Build only the auth service"
 	@echo "  ${GREEN}build-core${NC}    - Build only the core service"
 	@echo "  ${GREEN}up${NC}            - Start all services"
+	@echo "  ${GREEN}up-auto${NC}            - Start all services"
 	@echo "  ${GREEN}up-external-db${NC} - Start services using external MongoDB"
 	@echo "  ${GREEN}down${NC}          - Stop all services"
 	@echo "  ${GREEN}restart${NC}       - Restart all services"
@@ -40,7 +42,11 @@ help:
 # Build all service images
 build:
 	@echo "${BLUE}Building all service images...${NC}"
-	$(DOCKER_COMPOSE) build
+	$(DOCKER_COMPOSE) build  --no-cache
+
+build-nocache:
+	@echo "${BLUE}Building all service images...${NC}"
+	$(DOCKER_COMPOSE) build  --no-cache
 
 # Build specific services
 build-auth:
@@ -58,6 +64,27 @@ up:
 	@echo "${GREEN}Services started!${NC}"
 	@echo "Auth Service: http://localhost:50051"
 	@echo "Core Service: http://localhost:8080"
+
+up-with-db:
+	@echo "${BLUE}Starting all services with MongoDB...${NC}"
+	$(DOCKER_COMPOSE) --profile database up -d
+	@echo "${GREEN}Services started!${NC}"
+
+# Start services using external MongoDB
+up-without-db:
+	@echo "${BLUE}Starting services without MongoDB...${NC}"
+	@echo "${YELLOW}Make sure MongoDB is running at $(MONGODB_HOST):$(MONGODB_PORT)${NC}"
+	$(DOCKER_COMPOSE) up -d
+	@echo "${GREEN}Services started!${NC}"
+
+up-auto:
+	@if nc -z $(MONGODB_HOST) $(MONGODB_PORT) 2>/dev/null; then \
+		echo "${GREEN}MongoDB is already running on $(MONGODB_HOST):$(MONGODB_PORT)${NC}"; \
+		$(MAKE) up-without-db; \
+	else \
+		echo "${YELLOW}MongoDB is not running on $(MONGODB_HOST):$(MONGODB_PORT), starting it...${NC}"; \
+		$(MAKE) up-with-db; \
+	fi
 
 # Check if MongoDB is already running
 check-mongodb:

@@ -6,15 +6,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
+	"github.com/mrityunjay-vashisth/core-service/internal/services/authsvc"
 	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
 )
 
 // ConditionalAuthMiddleware applies authentication only to protected routes
-func ConditionalAuthMiddleware(registeredServices services.ServiceManagerInterface, publicRoutes []string) func(http.Handler) http.Handler {
+func ConditionalAuthMiddleware(serviceRegistry registry.ServiceRegistry, publicRoutes []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authService := registeredServices.GetAuthService()
+			authService := serviceRegistry.Get(registry.AuthService).(authsvc.Service)
 			authClient := authService.GetClient()
 			// Skip authentication for public routes
 			if isPublicRoute(r.URL.Path, publicRoutes) {

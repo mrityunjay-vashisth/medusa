@@ -1,4 +1,4 @@
-package services
+package authsvc
 
 import (
 	"context"
@@ -8,26 +8,9 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.uber.org/zap"
 )
 
-type SessionServicesInterface interface {
-	CreateSession(claims *models.UserClaims) (string, error)
-	// GetSession(token string) (*models.Session, error)
-	// RefreshSession()
-	// DeleteSession()
-}
-
-type SessionService struct {
-	db     db.DBClientInterface
-	Logger *zap.Logger
-}
-
-func NewSessionService(db db.DBClientInterface, logger *zap.Logger) SessionServicesInterface {
-	return &SessionService{db: db, Logger: logger}
-}
-
-func (s *SessionService) CreateSession(claims *models.UserClaims) (string, error) {
+func (s *authService) CreateSession(claims *models.UserClaims) (string, error) {
 	session := &models.Session{
 		SessionID: "1",
 		UserID:    claims.Username,
@@ -51,7 +34,7 @@ func (s *SessionService) CreateSession(claims *models.UserClaims) (string, error
 	return session.SessionID, nil
 }
 
-func (s *SessionService) GetSession(token string) (*models.Session, error) {
+func (s *authService) GetSession(token string) (*models.Session, error) {
 	var session models.Session
 
 	filter := bson.M{"_id": token}

@@ -1,4 +1,4 @@
-package services
+package onboardingsvc
 
 import (
 	"context"
@@ -9,13 +9,14 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/config"
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"github.com/mrityunjay-vashisth/go-idforge/pkg/idforge"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type OnboardingServicesInterface interface {
+type Service interface {
 	OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error)
 	GetTenants(ctx context.Context, status string) (interface{}, error)
 	GetTenantByID(ctx context.Context, id string) (interface{}, error)
@@ -23,12 +24,17 @@ type OnboardingServicesInterface interface {
 }
 
 type onboardingService struct {
-	db     db.DBClientInterface
-	Logger *zap.Logger
+	db          db.DBClientInterface
+	Logger      *zap.Logger
+	svcRegistry registry.ServiceRegistry
 }
 
-func NewOnboardingService(db db.DBClientInterface, logger *zap.Logger) *onboardingService {
-	return &onboardingService{db: db, Logger: logger}
+func NewService(db db.DBClientInterface, registry registry.ServiceRegistry, logger *zap.Logger) Service {
+	return &onboardingService{
+		db:          db,
+		svcRegistry: registry,
+		Logger:      logger,
+	}
 }
 
 func (h *onboardingService) OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error) {
@@ -111,7 +117,7 @@ func (h *onboardingService) GetTenants(ctx context.Context, status string) (inte
 	}
 	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(dbName), db.WithCollectionName(collectionName))
 	if err != nil {
-		h.Logger.Info("Error reading pending requests", zap.String("err", err.Error()))
+		h.Logger.Info("Error reading pending", zap.String("err", err.Error()))
 		return nil, errors.New("failed to fetch pending requests")
 	}
 	return requests, nil

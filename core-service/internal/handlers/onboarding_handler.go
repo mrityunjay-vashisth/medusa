@@ -10,7 +10,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
-	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
+	"github.com/mrityunjay-vashisth/core-service/internal/services/onboardingsvc"
 	"go.uber.org/zap"
 )
 
@@ -26,12 +27,15 @@ type OnboardingHandlerInterface interface {
 
 // OnboardingHandler handles all onboarding-related requests
 type onboardingHandler struct {
-	Service services.OnboardingServicesInterface
-	Logger  *zap.Logger
+	registry registry.ServiceRegistry
+	logger   *zap.Logger
 }
 
-func NewOnboardingHandler(service services.OnboardingServicesInterface, logger *zap.Logger) OnboardingHandlerInterface {
-	return &onboardingHandler{Service: service, Logger: logger}
+func NewOnboardingHandler(registry registry.ServiceRegistry, logger *zap.Logger) OnboardingHandlerInterface {
+	return &onboardingHandler{
+		registry: registry,
+		logger:   logger,
+	}
 }
 
 /*
@@ -53,8 +57,8 @@ PATCH  	/tenants/approve/{id}
 // ServeHTTP routes requests to onboarding-specific functions
 func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	h.Logger.Info("Onboarding API", zap.String("action", vars["action"]))
-	h.Logger.Info("Onboarding API", zap.String("id", vars["id"]))
+	h.logger.Info("Onboarding API", zap.String("action", vars["action"]))
+	h.logger.Info("Onboarding API", zap.String("id", vars["id"]))
 	action := vars["action"]
 	id := vars["id"]
 
@@ -90,6 +94,16 @@ func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getOnboardingService retrieves the onboarding service from the registry
+func (h *onboardingHandler) getOnboardingService() (onboardingsvc.Service, error) {
+	service, ok := h.registry.Get(registry.OnboardingService).(onboardingsvc.Service)
+	if !ok {
+		h.logger.Error("Failed to get onboarding service from registry")
+		return nil, errors.New("internal service error")
+	}
+	return service, nil
+}
+
 // OnboardTenant handles onboarding requests
 func (h *onboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -102,13 +116,19 @@ func (h *onboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	requestId, err := h.Service.OnboardTenant(r.Context(), req)
+	service, err := h.getOnboardingService()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		return
+	}
+
+	requestId, err := service.OnboardTenant(r.Context(), req)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.Logger.Info("Onboarding request submitted", zap.String("request_id", requestId))
+	h.logger.Info("Onboarding request submitted", zap.String("request_id", requestId))
 	json.NewEncoder(w).Encode(map[string]string{
 		"message":    "Onboarding request submitted, pending approval",
 		"request_id": requestId,
@@ -130,8 +150,15 @@ func (h *onboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+
+	service, err := h.getOnboardingService()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		return
+	}
+
 	status := r.URL.Query().Get("state")
-	requests, err := h.Service.GetTenants(r.Context(), status)
+	requests, err := service.GetTenants(r.Context(), status)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -142,18 +169,25 @@ func (h *onboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string) {
 	token := r.Header.Get("Authorization")
 	if token == "" {
-		h.Logger.Info("Empty token received")
+		h.logger.Info("Empty token received")
 		return
 	}
 	if !validateServiceToken(w, token) {
-		h.Logger.Info("Token validation failed")
+		h.logger.Info("Token validation failed")
 		return
 	}
-	requests, err := h.Service.GetTenantByID(r.Context(), id)
+
+	service, err := h.getOnboardingService()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		return
+	}
+
+	requests, err := service.GetTenantByID(r.Context(), id)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 	}
-	h.Logger.Info("IN handler", zap.Any("hand", requests))
+	h.logger.Info("IN handler", zap.Any("hand", requests))
 	json.NewEncoder(w).Encode(requests)
 }
 
@@ -183,7 +217,13 @@ func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Req
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	err := h.Service.ApproveOnboarding(r.Context(), req.RequestID)
+	service, err := h.getOnboardingService()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		return
+	}
+
+	err = service.ApproveOnboarding(r.Context(), req.RequestID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 	}

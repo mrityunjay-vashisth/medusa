@@ -7,7 +7,7 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers"
 	"github.com/mrityunjay-vashisth/core-service/internal/middleware"
-	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"go.uber.org/zap"
 )
 
@@ -21,15 +21,17 @@ var publicRoutes = []string{
 
 // APIServer initializes API routes dynamically
 type APIServer struct {
-	Router *mux.Router
-	Logger *zap.Logger
+	Router   *mux.Router
+	Logger   *zap.Logger
+	Registry registry.ServiceRegistry
 }
 
 // NewAPIServer loads `registry.json` and registers API routes
-func NewAPIServer(db db.DBClientInterface, registeredServices services.ServiceManagerInterface, logger *zap.Logger) *APIServer {
+func NewAPIServer(db db.DBClientInterface, serviceRegistry registry.ServiceRegistry, logger *zap.Logger) *APIServer {
 	server := &APIServer{
-		Router: mux.NewRouter(),
-		Logger: logger,
+		Router:   mux.NewRouter(),
+		Logger:   logger,
+		Registry: serviceRegistry,
 	}
 	// Load API registry
 	registry, err := LoadRegistry()
@@ -38,7 +40,7 @@ func NewAPIServer(db db.DBClientInterface, registeredServices services.ServiceMa
 	}
 
 	// Initialize handlers
-	mainHandler := handlers.NewMainHandler(db, registeredServices, logger)
+	mainHandler := handlers.NewMainHandler(db, serviceRegistry, logger)
 
 	// Loop through `registry.json` and create API groups dynamically
 	for group, versions := range registry {
@@ -72,7 +74,7 @@ func NewAPIServer(db db.DBClientInterface, registeredServices services.ServiceMa
 	// Apply middleware
 	server.Router.Use(middleware.RecoveryMiddleware(logger))
 	server.Router.Use(middleware.LoggingMiddleware(logger))
-	server.Router.Use(middleware.ConditionalAuthMiddleware(registeredServices, publicRoutes))
+	server.Router.Use(middleware.ConditionalAuthMiddleware(serviceRegistry, publicRoutes))
 	log.Println("API Server started on /apis/core/v1")
 	return server
 }
