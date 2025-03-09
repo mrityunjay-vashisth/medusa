@@ -65,8 +65,8 @@ func (sm *ServiceManager) GetOnboardingService() onboardingsvc.Service {
 }
 
 // GetAdminService returns the admin service
-func (sm *ServiceManager) GetAdminService() adminsvc.AdminServiceManagerInterface {
-	svc, ok := sm.registry.Get(registry.AdminService).(adminsvc.AdminServiceManagerInterface)
+func (sm *ServiceManager) GetAdminService() adminsvc.Service {
+	svc, ok := sm.registry.Get(registry.AdminService).(adminsvc.Service)
 	if !ok {
 		panic("Admin service not found in registry or has wrong type")
 	}

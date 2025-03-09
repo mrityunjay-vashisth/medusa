@@ -6,45 +6,21 @@ import (
 	"go.uber.org/zap"
 )
 
-type baseService struct {
-	db     db.DBClientInterface
-	logger *zap.Logger
-}
-
-type AdminServicesInterface interface {
+type Service interface {
 	GetCurrentAdmin()
 }
 
-type AdminServiceManagerInterface interface {
-	Admin() AdminServicesInterface
-	Department() DepartmentServicesInterface
-}
-
-type adminServiceManager struct {
-	adminService      AdminServicesInterface
-	departmentService DepartmentServicesInterface
-}
-
 type adminService struct {
-	*baseService
+	db          db.DBClientInterface
+	logger      *zap.Logger
+	svcRegistry registry.ServiceRegistry
 }
 
-func (m *adminServiceManager) Admin() AdminServicesInterface {
-	return m.adminService
-}
-
-func (m *adminServiceManager) Department() DepartmentServicesInterface {
-	return m.departmentService
-}
-
-func NewService(db db.DBClientInterface, registry registry.ServiceRegistry, logger *zap.Logger) AdminServiceManagerInterface {
-	base := &baseService{
-		db:     db,
-		logger: logger,
-	}
-
-	return &adminServiceManager{
-		adminService: &adminService{baseService: base},
+func NewService(db db.DBClientInterface, registry registry.ServiceRegistry, logger *zap.Logger) Service {
+	return &adminService{
+		db:          db,
+		svcRegistry: registry,
+		logger:      logger,
 	}
 }
 

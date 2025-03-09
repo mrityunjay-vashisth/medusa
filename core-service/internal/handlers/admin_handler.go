@@ -1,18 +1,27 @@
 package handlers
 
 import (
-	"github.com/mrityunjay-vashisth/core-service/internal/services/adminsvc"
+	"net/http"
+
+	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"go.uber.org/zap"
 )
 
 type AdminHandlerInterface interface {
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 type adminHandler struct {
-	Service adminsvc.AdminServiceManagerInterface
-	Logger  *zap.Logger
+	registry registry.ServiceRegistry
+	logger   *zap.Logger
 }
 
-func NewAdminHandler(service adminsvc.AdminServiceManagerInterface, logger *zap.Logger) AdminHandlerInterface {
-	return &adminHandler{Service: service, Logger: logger}
+func NewAdminHandler(registry registry.ServiceRegistry, logger *zap.Logger) AdminHandlerInterface {
+	return &adminHandler{
+		registry: registry,
+		logger:   logger,
+	}
+}
+
+func (h *adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }

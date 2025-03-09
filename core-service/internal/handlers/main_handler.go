@@ -36,6 +36,8 @@ func (h *handlerManager) GetSubHandler(name string) http.HandlerFunc {
 		return NewOnboardingHandler(h.registry, h.logger).ServeHTTP
 	case "AuthHandler":
 		return NewAuthHandler(h.registry, h.logger).ServeHTTP
+	case "AdminHandler":
+		return NewAdminHandler(h.registry, h.logger).ServeHTTP
 
 	default:
 		h.logger.Error("Unknown handler", zap.String("name", name))
