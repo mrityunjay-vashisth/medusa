@@ -11,7 +11,7 @@ import (
 )
 
 // ConditionalAuthMiddleware applies authentication only to protected routes
-func ConditionalAuthMiddleware(registeredServices *services.ServiceTypes, publicRoutes []string) func(http.Handler) http.Handler {
+func ConditionalAuthMiddleware(registeredServices *services.Container, publicRoutes []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authClient := registeredServices.AuthService.GetClient()

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mrityunjay-vashisth/core-service/internal/config"
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
 	"github.com/mrityunjay-vashisth/go-idforge/pkg/idforge"
@@ -16,7 +17,8 @@ import (
 
 type OnboardingServices interface {
 	OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error)
-	GetPendingRequests(ctx context.Context) (interface{}, error)
+	GetTenants(ctx context.Context, status string) (interface{}, error)
+	GetTenantByID(ctx context.Context, id string) (interface{}, error)
 	ApproveOnboarding(ctx context.Context, requestID string) error
 }
 
@@ -94,9 +96,31 @@ func (h *OnboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 }
 
 // GetPendingRequests fetches pending onboarding requests
-func (h *OnboardingService) GetPendingRequests(ctx context.Context) (interface{}, error) {
-	filter := bson.M{"status": "pending"}
-	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+func (h *OnboardingService) GetTenants(ctx context.Context, status string) (interface{}, error) {
+	var filter bson.M
+	var dbName string
+	var collectionName string
+	if status == "pending" {
+		filter = bson.M{"status": "pending"}
+		dbName = config.Medusa_Core
+		collectionName = config.Onboarding_Requests
+	} else {
+		filter = bson.M{"status": "active"}
+		dbName = config.Medusa_Core
+		collectionName = config.Onboarded_Tenants
+	}
+	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(dbName), db.WithCollectionName(collectionName))
+	if err != nil {
+		return nil, errors.New("failed to fetch pending requests")
+	}
+	return requests, nil
+}
+
+// GetPendingRequests fetches pending onboarding requests
+func (h *OnboardingService) GetTenantByID(ctx context.Context, id string) (interface{}, error) {
+	filter := bson.M{"request_id": id}
+	requests, err := h.db.Read(ctx, filter, db.WithDatabaseName(config.Medusa_Core), db.WithCollectionName(config.Onboarded_Tenants))
+	h.Logger.Info("req", zap.Any("req", requests))
 	if err != nil {
 		return nil, errors.New("failed to fetch pending requests")
 	}
@@ -148,18 +172,18 @@ func (h *OnboardingService) ApproveOnboarding(ctx context.Context, requestID str
 	newRequestMap["approved_at"] = time.Now().String()
 
 	// Insert as approved tenant
-	_, err = h.db.Create(ctx, newRequestMap, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarded_tenants"))
+	_, err = h.db.Create(ctx, newRequestMap, db.WithDatabaseName("coredb"), db.WithCollectionName(config.Onboarding_Requests))
 	if err != nil {
 		h.Logger.Error("Failed to create approved tenant", zap.Error(err))
 		return errors.New("failed to approve request")
 	}
 
-	// Delete pending request
-	_, err = h.db.Delete(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
-	if err != nil {
-		h.Logger.Error("Failed to delete pending request", zap.Error(err))
-		// Continue despite error
-	}
+	// // Delete pending request
+	// _, err = h.db.Delete(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	// if err != nil {
+	// 	h.Logger.Error("Failed to delete pending request", zap.Error(err))
+	// 	// Continue despite error
+	// }
 
 	h.Logger.Info("Credentials prepared for",
 		zap.String("email", newRequestMap["email"].(string)),
@@ -168,6 +192,16 @@ func (h *OnboardingService) ApproveOnboarding(ctx context.Context, requestID str
 		zap.String("password", password))
 
 	return nil
+}
+
+// GetPendingRequests fetches pending onboarding requests
+func (h *OnboardingService) GetActiveOrg(ctx context.Context) (interface{}, error) {
+	filter := bson.M{"status": "active"}
+	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(config.Medusa_Core), db.WithCollectionName(config.Onboarding_Requests))
+	if err != nil {
+		return nil, errors.New("failed to fetch pending requests")
+	}
+	return requests, nil
 }
 
 func generateRandomPassword() string {

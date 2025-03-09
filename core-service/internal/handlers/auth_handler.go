@@ -1,30 +1,37 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
-	"github.com/mrityunjay-vashisth/core-service/internal/db"
-	"github.com/mrityunjay-vashisth/medusa-proto/authpb"
+	"github.com/gorilla/mux"
+	"github.com/mrityunjay-vashisth/core-service/internal/services"
+	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
-	client authpb.AuthServiceClient
-	db     db.DBClientInterface
+	Service services.AuthServices
+	Logger  *zap.Logger
 }
 
-func NewAuthHandler(db db.DBClientInterface, client authpb.AuthServiceClient) *AuthHandler {
-	return &AuthHandler{
-		db:     db,
-		client: client,
-	}
+func NewAuthHandler(service services.AuthServices, logger *zap.Logger) *AuthHandler {
+	return &AuthHandler{Service: service, Logger: logger}
 }
 
 // ServeHTTP routes requests
 func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.Login(w, r)
+	vars := mux.Vars(r)
+	h.Logger.Info("Auth API", zap.String("subpath", vars["subpath"]))
+	subPath := vars["subpath"]
+
+	switch subPath {
+	case "login":
+		h.Login(w, r)
+	case "register":
+		h.Register(w, r)
+	default:
+		respondWithError(w, http.StatusNotFound, "Invalid Onboarding API")
+	}
 }
 
 func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -32,25 +39,19 @@ func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		// http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	authReq := &authpb.LoginRequest{
-		Username: req.Username,
-		Password: req.Password,
-	}
-	authResp, err := a.client.Login(context.Background(), authReq)
+	authResp, err := a.Service.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
-		log.Printf("Login failed: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	if authResp.Token == "" {
-		http.Error(w, authResp.Message, http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, authResp.Message)
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]string{
@@ -58,4 +59,8 @@ func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"message": authResp.Message,
 		"email":   authResp.Email,
 	})
+}
+
+func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	// handle reg request
 }

@@ -24,9 +24,9 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	subPath := vars["subpath"]
 
 	switch subPath {
-	case "":
+	case "register":
 		h.CreateUser(w, r)
-	case "{id}":
+	case "getuser":
 		h.GetUser(w, r)
 	default:
 		http.Error(w, "Invalid User API", http.StatusNotFound)

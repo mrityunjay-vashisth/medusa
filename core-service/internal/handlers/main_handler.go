@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -17,11 +18,11 @@ type MainHandler struct {
 }
 
 // NewMainHandler initializes subhandlers
-func NewMainHandler(db db.DBClientInterface, newServices *services.ServiceTypes, logger *zap.Logger) *MainHandler {
+func NewMainHandler(db db.DBClientInterface, newServices *services.Container, logger *zap.Logger) *MainHandler {
 	return &MainHandler{
 		UserHandler:       NewUserHandler(db),
 		OnboardingHandler: NewOnboardingHandler(newServices.OnboardingService, logger),
-		AuthHandler:       NewAuthHandler(db, newServices.AuthService.GetClient()),
+		AuthHandler:       NewAuthHandler(newServices.AuthService, logger),
 	}
 }
 
@@ -30,7 +31,7 @@ func (h *MainHandler) GetSubHandler(name string) http.HandlerFunc {
 	switch name {
 	case "UserHandler":
 		return h.UserHandler.ServeHTTP
-	case "OnboardingHandler":
+	case "TenantHandler":
 		return h.OnboardingHandler.ServeHTTP
 	case "AuthHandler":
 		return h.AuthHandler.ServeHTTP
@@ -38,4 +39,10 @@ func (h *MainHandler) GetSubHandler(name string) http.HandlerFunc {
 		log.Printf("Unknown handler: %s", name)
 		return nil
 	}
+}
+
+func respondWithError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"message": message})
 }

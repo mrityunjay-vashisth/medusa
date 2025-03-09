@@ -26,21 +26,59 @@ func NewOnboardingHandler(service services.OnboardingServices, logger *zap.Logge
 	return &OnboardingHandler{Service: service, Logger: logger}
 }
 
+/*
+POST 	/tenants/{action}
+GET 	/tenants/{action}
+GET 	/tenants/{action}/{id}
+PATCH 	/tenants/{action}/{id}
+
+POST	/tenants/onboard
+GET    	/tenants/status?state={pending, active}
+GET    	/tenants/viewall
+GET    	/tenants/view/{id}?search=reqid
+GET    	/tenants/view/{id}?search=tenantid
+GET    	/tenants/view/{id}?search=reqid
+GET    	/tenants/view/{id}?search=reqid
+PATCH  	/tenants/approve/{id}
+*/
+
 // ServeHTTP routes requests to onboarding-specific functions
 func (h *OnboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	h.Logger.Info("Onboarding API", zap.String("subpath", vars["subpath"]))
-	subPath := vars["subpath"]
+	h.Logger.Info("Onboarding API", zap.String("action", vars["action"]))
+	h.Logger.Info("Onboarding API", zap.String("id", vars["id"]))
+	action := vars["action"]
+	id := vars["id"]
 
-	switch subPath {
-	case "pending":
-		h.GetPendingRequests(w, r)
-	case "approve":
-		h.ApproveOnboarding(w, r)
-	case "onboard":
-		h.OnboardTenant(w, r)
+	switch r.Method {
+	case http.MethodPost:
+		switch action {
+		case "onboard":
+			h.OnboardTenant(w, r)
+		default:
+			respondWithError(w, http.StatusNotFound, "Invalid Onboarding POST API")
+		}
+	case http.MethodGet:
+		switch action {
+		case "status":
+			if id == "" {
+				h.GetTenants(w, r)
+			} else {
+				h.GetTenantByRequestID(w, r, id)
+			}
+		default:
+			respondWithError(w, http.StatusNotFound, "Invalid Onboarding GET API")
+		}
+	case http.MethodPatch:
+		switch action {
+		case "approve":
+			h.ApproveOnboarding(w, r)
+		default:
+			respondWithError(w, http.StatusNotFound, "Invalid Onboarding PATCH API")
+		}
 	default:
-		respondWithError(w, http.StatusNotFound, "Invalid Onboarding API")
+		respondWithError(w, http.StatusNotFound, "Invalid Onboarding API Method")
+
 	}
 }
 
@@ -70,7 +108,7 @@ func (h *OnboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request
 }
 
 // GetPendingRequests fetches pending onboarding requests
-func (h *OnboardingHandler) GetPendingRequests(w http.ResponseWriter, r *http.Request) {
+func (h *OnboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
@@ -84,10 +122,33 @@ func (h *OnboardingHandler) GetPendingRequests(w http.ResponseWriter, r *http.Re
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	requests, err := h.Service.GetPendingRequests(r.Context())
+	status := r.URL.Query().Get("state")
+	requests, err := h.Service.GetTenants(r.Context(), status)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 	}
+	json.NewEncoder(w).Encode(requests)
+}
+
+func (h *OnboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodGet {
+		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
+		return
+	}
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	if !validateServiceToken(w, token) {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	requests, err := h.Service.GetTenantByID(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+	}
+	h.Logger.Info("IN handler", zap.Any("hand", requests))
 	json.NewEncoder(w).Encode(requests)
 }
 
@@ -152,10 +213,4 @@ func validateToken(tokenString string) (*models.UserClaims, error) {
 	}
 
 	return claims, nil
-}
-
-func respondWithError(w http.ResponseWriter, statusCode int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]string{"message": message})
 }

@@ -1,6 +1,6 @@
 package services
 
-type ServiceTypes struct {
+type Container struct {
 	AuthService       *AuthService
 	OnboardingService *OnboardingService
 	SessionService    *SessionService
