@@ -30,7 +30,7 @@ func main() {
 	authService := services.NewAuthService("192.168.1.17:50051")
 	onboardingService := services.NewOnboardingService(dbClient, nil)
 
-	newServices := &services.ServiceTypes{
+	newServices := &services.Container{
 		AuthService:       authService,
 		OnboardingService: onboardingService,
 	}

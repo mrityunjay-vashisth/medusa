@@ -4,9 +4,12 @@ import "github.com/golang-jwt/jwt/v5"
 
 // OnboardingRequest represents a new onboarding request
 type OnboardingRequest struct {
-	OrganizationName string `json:"organization_name" bson:"organization_name"`
-	Email            string `json:"email" bson:"email"`
-	Role             string `json:"role" bson:"role"`
+	OrganizationName   string `json:"organization_name" bson:"organization_name"`
+	Email              string `json:"email" bson:"email"`
+	Role               string `json:"role" bson:"role"`
+	Address            string `json:"address" bson:"address"`                         // Add this
+	PhoneNumber        string `json:"phone_number" bson:"phone_number"`               // Add this
+	BusinessIdentifier string `json:"business_identifier" bson:"business_identifier"` // Add this (tax ID, registration number, etc.)
 }
 
 // EntityMetadata represents the structure of an onboarding request stored in MongoDB

@@ -38,28 +38,32 @@ func NewAuthService(client *mongo.Client) *authService {
 }
 
 func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
+	// Validate input
 	if req.Username == "" || req.Password == "" || req.Email == "" || req.Role == "" {
 		return nil, errors.New("username, password email and role are required")
 	}
-
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
-	collection := s.client.Database("authdb").Collection("users")
-	existingUser := collection.FindOne(ctx, bson.M{"email": req.Email})
-	if existingUser.Err() == nil {
-		return nil, errors.New("email already registered, try logging in")
-	}
-	_, err = collection.InsertOne(ctx, user{
+	// Create user document
+	newUser := user{
 		Username: req.Username,
 		Password: string(hashedPassword),
 		Role:     req.Role,
 		Email:    req.Email,
-	})
+	}
+
+	collection := s.client.Database("authdb").Collection("users")
+
+	// Insert the user directly, relying on unique indexes
+	_, err = collection.InsertOne(ctx, newUser)
 	if err != nil {
-		return nil, err
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, errors.New("email already registered, try logging in")
+		}
+		return nil, errors.New("failed to register user")
 	}
 
 	return &authpb.RegisterResponse{Message: "User registered successfully"}, nil

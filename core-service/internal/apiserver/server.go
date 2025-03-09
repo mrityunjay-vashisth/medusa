@@ -15,7 +15,7 @@ import (
 var publicRoutes = []string{
 	"/apis/core/v1/auth/login",
 	"/apis/core/v1/auth/register",
-	"/apis/core/v1/onboarding/onboard",
+	"/apis/core/v1/tenants",
 	"/openapi/v2",
 }
 
@@ -26,7 +26,7 @@ type APIServer struct {
 }
 
 // NewAPIServer loads `registry.json` and registers API routes
-func NewAPIServer(db db.DBClientInterface, registeredServices *services.ServiceTypes) *APIServer {
+func NewAPIServer(db db.DBClientInterface, registeredServices *services.Container) *APIServer {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
@@ -46,19 +46,29 @@ func NewAPIServer(db db.DBClientInterface, registeredServices *services.ServiceT
 	mainHandler := handlers.NewMainHandler(db, registeredServices, logger)
 
 	registeredServices.OnboardingService.Logger = logger
+	registeredServices.AuthService.Logger = logger
 
 	// Loop through `registry.json` and create API groups dynamically
 	for group, versions := range registry {
 		for version, resources := range versions {
 			apiPath := "/apis/" + group + "/" + version
 			subRouter := server.Router.PathPrefix(apiPath).Subrouter()
+			logger.Info("Handler details",
+				zap.String("apiPath", apiPath))
 
 			for path, resource := range resources {
 				fullPath := apiPath + path
 				handlerFunc := mainHandler.GetSubHandler(resource.Subhandler)
+				logger.Info("Handler found",
+					zap.String("handler", resource.Subhandler),
+					zap.String("fullpath", fullPath),
+					zap.String("apiPath", apiPath),
+					zap.String("path", path))
 
 				if handlerFunc == nil {
-					log.Printf("Error: Handler %s not found for %s", resource.Subhandler, fullPath)
+					logger.Error("Handler not found",
+						zap.String("handler", resource.Subhandler),
+						zap.String("path", fullPath))
 					continue
 				}
 
@@ -67,8 +77,8 @@ func NewAPIServer(db db.DBClientInterface, registeredServices *services.ServiceT
 			}
 		}
 	}
-	// authClient := newServices.AuthService.GetClient()
 	// Apply middleware
+	server.Router.Use(middleware.RecoveryMiddleware(logger))
 	server.Router.Use(middleware.LoggingMiddleware(logger))
 	server.Router.Use(middleware.ConditionalAuthMiddleware(registeredServices, publicRoutes))
 	log.Println("API Server started on /apis/core/v1")
