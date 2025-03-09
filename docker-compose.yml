@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: medusa-mongodb
+    restart: always
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - medusa-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - with-mongodb
+      - default
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: ./Dockerfile
+    container_name: medusa-auth-service
+    restart: always
+    env_file:
+      - ./auth-service/.env
+    ports:
+      - "50051:50051"
+    networks:
+      - medusa-network
+
+  core-service:
+    build:
+      context: ./core-service
+      dockerfile: ./Dockerfile
+    container_name: medusa-core-service
+    restart: always
+    depends_on:
+      - auth-service
+    env_file:
+      - ./core-service/.env
+    ports:
+      - "8080:8080"
+    networks:
+      - medusa-network
+
+networks:
+  medusa-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

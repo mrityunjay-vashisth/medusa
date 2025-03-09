@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte("my-secret-key")
+var jwtKey = []byte("your-secure-jwt-secret-replace-in-production")
 
 type authService struct {
 	authpb.UnimplementedAuthServiceServer
@@ -117,4 +117,8 @@ func (s *authService) CheckAccess(ctx context.Context, req *authpb.CheckAccessRe
 	}
 	return &authpb.CheckAccessResponse{Message: "Access granted"}, nil
 
+}
+
+func SetJWTKey(key []byte) {
+	jwtKey = key
 }

@@ -17,13 +17,14 @@ type APIRegistry map[string]map[string]map[string]APIResource
 
 // LoadRegistry loads API definitions from `apiserver/registry.json`
 func LoadRegistry() (APIRegistry, error) {
-	// Directly reference the relative path
-	registryPath := "../internal/apiserver/registry.json"
-
-	// Read the file
-	data, err := os.ReadFile(registryPath)
+	// Try the file at the root first, then fall back to the original path
+	data, err := os.ReadFile("/registry.json")
 	if err != nil {
-		return nil, err
+		// Fall back to the original path
+		data, err = os.ReadFile("../internal/apiserver/registry.json")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var registry APIRegistry
@@ -31,6 +32,6 @@ func LoadRegistry() (APIRegistry, error) {
 		return nil, err
 	}
 
-	log.Println("Loaded API Registry from", registryPath)
+	log.Println("Loaded API Registry successfully")
 	return registry, nil
 }

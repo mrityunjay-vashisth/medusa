@@ -1,6 +1,8 @@
 package services
 
 import (
+	"os"
+
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/adminsvc"
 
@@ -22,8 +24,12 @@ type serviceManager struct {
 }
 
 func NewServiceManager(db db.DBClientInterface, logger *zap.Logger) ServiceManagerInterface {
+	authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
+	if authServiceAddr == "" {
+		authServiceAddr = "172.26.57.112:50051"
+	}
 	return &serviceManager{
-		authService:       NewAuthService("172.26.57.112:50051", logger),
+		authService:       NewAuthService(authServiceAddr, logger),
 		onboardingService: NewOnboardingService(db, logger),
 		sessionService:    NewSessionService(db, logger),
 		adminService:      adminsvc.NewAdminServiceManager(db, logger),

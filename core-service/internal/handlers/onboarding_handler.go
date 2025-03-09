@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var jwtKey = []byte("my-secret-key")
+var jwtKey = []byte("your-secure-jwt-secret-replace-in-production")
 
 type OnboardingHandlerInterface interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -134,6 +134,7 @@ func (h *onboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 	requests, err := h.Service.GetTenants(r.Context(), status)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 	json.NewEncoder(w).Encode(requests)
 }

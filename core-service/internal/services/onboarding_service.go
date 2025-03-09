@@ -111,6 +111,7 @@ func (h *onboardingService) GetTenants(ctx context.Context, status string) (inte
 	}
 	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(dbName), db.WithCollectionName(collectionName))
 	if err != nil {
+		h.Logger.Info("Error reading pending requests", zap.String("err", err.Error()))
 		return nil, errors.New("failed to fetch pending requests")
 	}
 	return requests, nil

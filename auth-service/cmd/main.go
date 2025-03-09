@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/mrityunjay-vashisth/auth-service/internal/auth"
@@ -41,10 +42,19 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		mongoURI = "mongodb://192.168.1.14:27017"
+	}
 	var err error
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://192.168.1.14:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	jwtKeyString := os.Getenv("JWT_SECRET_KEY")
+	if jwtKeyString != "" {
+		auth.SetJWTKey([]byte(jwtKeyString))
 	}
 
 	if err := setupIndexes(client); err != nil {
@@ -58,7 +68,12 @@ func main() {
 	authService := auth.NewAuthService(client)
 	oauthService := auth.NewOAuthService(oauthManager, client)
 
-	listner, err := net.Listen("tcp", ":50051")
+	grpcPort := os.Getenv("AUTH_GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50051"
+	}
+
+	listner, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

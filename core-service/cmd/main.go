@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/mrityunjay-vashisth/core-service/internal/apiserver"
@@ -17,9 +18,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		mongoURI = "mongodb://192.168.1.14:27017"
+	}
+
 	dbConfig := db.DBConfig{
 		Type:           db.MongoDB,
-		URI:            "mongodb://192.168.1.14:27017",
+		URI:            mongoURI,
 		DatabaseName:   "coredb",
 		CollectionName: "entities",
 	}
@@ -48,7 +54,10 @@ func main() {
 	})
 
 	corsHandler := corsMiddleware.Handler(apiServer.Router)
-
-	log.Println("Core API Server running on port 8080...")
-	log.Fatal(http.ListenAndServe(":8080", corsHandler))
+	apiPort := os.Getenv("API_PORT")
+	if apiPort == "" {
+		apiPort = "8080"
+	}
+	log.Println("Core API Server running on port " + apiPort + "...")
+	log.Fatal(http.ListenAndServe(":"+apiPort, corsHandler))
 }
