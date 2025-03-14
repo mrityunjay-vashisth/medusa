@@ -1,4 +1,4 @@
-package handlers
+package onboardinghdlr
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
+	"github.com/mrityunjay-vashisth/core-service/internal/handlers/utility"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
 	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/onboardingsvc"
@@ -68,7 +69,7 @@ func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case "onboard":
 			h.OnboardTenant(w, r)
 		default:
-			respondWithError(w, http.StatusNotFound, "Invalid Onboarding POST API")
+			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding POST API")
 		}
 	case http.MethodGet:
 		switch action {
@@ -79,17 +80,17 @@ func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.GetTenantByRequestID(w, r, id)
 			}
 		default:
-			respondWithError(w, http.StatusNotFound, "Invalid Onboarding GET API")
+			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding GET API")
 		}
 	case http.MethodPatch:
 		switch action {
 		case "approve":
 			h.ApproveOnboarding(w, r)
 		default:
-			respondWithError(w, http.StatusNotFound, "Invalid Onboarding PATCH API")
+			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding PATCH API")
 		}
 	default:
-		respondWithError(w, http.StatusNotFound, "Invalid Onboarding API Method")
+		utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding API Method")
 
 	}
 }
@@ -107,24 +108,24 @@ func (h *onboardingHandler) getOnboardingService() (onboardingsvc.Service, error
 // OnboardTenant handles onboarding requests
 func (h *onboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
+		utility.RespondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
 	}
 	var req models.OnboardingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	service, err := h.getOnboardingService()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
 
 	requestId, err := service.OnboardTenant(r.Context(), req)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -138,29 +139,29 @@ func (h *onboardingHandler) OnboardTenant(w http.ResponseWriter, r *http.Request
 // GetPendingRequests fetches pending onboarding requests
 func (h *onboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
+		utility.RespondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
 	}
 	token := r.Header.Get("Authorization")
 	if token == "" {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		utility.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	if !validateServiceToken(w, token) {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		utility.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	service, err := h.getOnboardingService()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
 
 	status := r.URL.Query().Get("state")
 	requests, err := service.GetTenants(r.Context(), status)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	json.NewEncoder(w).Encode(requests)
@@ -179,13 +180,13 @@ func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.
 
 	service, err := h.getOnboardingService()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
 
 	requests, err := service.GetTenantByID(r.Context(), id)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 	}
 	h.logger.Info("IN handler", zap.Any("hand", requests))
 	json.NewEncoder(w).Encode(requests)
@@ -194,38 +195,38 @@ func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.
 // ApproveOnboarding approves onboarding requests
 func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
+		utility.RespondWithError(w, http.StatusMethodNotAllowed, "Invalid request method")
 		return
 	}
 	token := r.Header.Get("Authorization")
 	if token == "" {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		utility.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	if !validateServiceToken(w, token) {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		utility.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	var req struct {
 		RequestID string `json:"request_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	if req.RequestID == "" {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	service, err := h.getOnboardingService()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
 
 	err = service.ApproveOnboarding(r.Context(), req.RequestID)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 	}
 	json.NewEncoder(w).Encode(map[string]string{"message": "Onboarding request approved, credentials sent"})
 }
@@ -233,12 +234,12 @@ func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Req
 func validateServiceToken(w http.ResponseWriter, tokenString string) bool {
 	ownerClaims, err := validateToken(tokenString)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Invalid owner token")
+		utility.RespondWithError(w, http.StatusUnauthorized, "Invalid owner token")
 		return false
 	}
 	log.Printf("%s", ownerClaims.Role)
 	if ownerClaims.Role != "superuser" {
-		respondWithError(w, http.StatusForbidden, "Unauthorized: Only superusers can view/approve")
+		utility.RespondWithError(w, http.StatusForbidden, "Unauthorized: Only superusers can view/approve")
 		return false
 	}
 	return true

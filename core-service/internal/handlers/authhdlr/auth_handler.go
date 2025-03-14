@@ -1,4 +1,4 @@
-package handlers
+package authhdlr
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/mrityunjay-vashisth/core-service/internal/handlers/utility"
 	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/authsvc"
 	"go.uber.org/zap"
@@ -41,7 +42,7 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "register":
 		h.Register(w, r)
 	default:
-		respondWithError(w, http.StatusNotFound, "Invalid Onboarding API")
+		utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding API")
 	}
 }
 
@@ -61,25 +62,25 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
 		// http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	authService, err := a.getAuthService()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Internal service error")
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
 
 	authResp, err := authService.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Internal server error")
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	if authResp.Token == "" {
-		respondWithError(w, http.StatusUnauthorized, authResp.Message)
+		utility.RespondWithError(w, http.StatusUnauthorized, authResp.Message)
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]string{

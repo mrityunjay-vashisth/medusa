@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"os"
 
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
@@ -8,18 +9,21 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/services/adminsvc"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/authsvc"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/onboardingsvc"
-
 	"go.uber.org/zap"
 )
 
 type ServiceManager struct {
 	registry registry.ServiceRegistry
+	logger   *zap.Logger
 }
 
-func NewServiceManager(db db.DBClientInterface, logger *zap.Logger) *ServiceManager {
+func NewServiceManager(ctx context.Context, db db.DBClientInterface) *ServiceManager {
 	// Create registry
 	serviceRegistry := registry.NewServiceRegistry()
-
+	logger, ok := ctx.Value("logger").(*zap.Logger)
+	if !ok {
+		logger = zap.L()
+	}
 	authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
 	if authServiceAddr == "" {
 		authServiceAddr = "172.26.57.112:50051"
@@ -35,6 +39,7 @@ func NewServiceManager(db db.DBClientInterface, logger *zap.Logger) *ServiceMana
 
 	return &ServiceManager{
 		registry: serviceRegistry,
+		logger:   logger,
 	}
 
 }

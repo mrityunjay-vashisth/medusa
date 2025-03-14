@@ -47,8 +47,8 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 
 	filter := bson.M{"email": req.Email}
 	existingReq, err := h.db.Read(ctx, filter,
-		db.WithDatabaseName("coredb"),
-		db.WithCollectionName("onboarding_requests"))
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardingRequests))
 
 	// First check for database errors
 	if err != nil {
@@ -63,8 +63,8 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 	}
 
 	existingReq, err = h.db.Read(ctx, filter,
-		db.WithDatabaseName("coredb"),
-		db.WithCollectionName("onboarded_tenants"))
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
 
 	// First check for database errors
 	if err != nil {
@@ -91,8 +91,8 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 		"entitlements":      "",
 	}
 	_, err = h.db.Create(ctx, dataMap,
-		db.WithDatabaseName("coredb"),
-		db.WithCollectionName("onboarding_requests"))
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardingRequests))
 	if err != nil {
 		return "", errors.New("failed to onboard tenant")
 	}
@@ -108,14 +108,16 @@ func (h *onboardingService) GetTenants(ctx context.Context, status string) (inte
 	var collectionName string
 	if status == "pending" {
 		filter = bson.M{"status": "pending"}
-		dbName = config.Medusa_Core
-		collectionName = config.Onboarding_Requests
+		dbName = config.DatabaseNames.CoreDB
+		collectionName = config.CollectionNames.OnboardingRequests
 	} else {
 		filter = bson.M{"status": "active"}
-		dbName = config.Medusa_Core
-		collectionName = config.Onboarded_Tenants
+		dbName = config.DatabaseNames.CoreDB
+		collectionName = config.CollectionNames.OnboardedTenants
 	}
-	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(dbName), db.WithCollectionName(collectionName))
+	requests, err := h.db.ReadAll(ctx, filter,
+		db.WithDatabaseName(dbName),
+		db.WithCollectionName(collectionName))
 	if err != nil {
 		h.Logger.Info("Error reading pending", zap.String("err", err.Error()))
 		return nil, errors.New("failed to fetch pending requests")
@@ -126,7 +128,9 @@ func (h *onboardingService) GetTenants(ctx context.Context, status string) (inte
 // GetPendingRequests fetches pending onboarding requests
 func (h *onboardingService) GetTenantByID(ctx context.Context, id string) (interface{}, error) {
 	filter := bson.M{"request_id": id}
-	requests, err := h.db.Read(ctx, filter, db.WithDatabaseName(config.Medusa_Core), db.WithCollectionName(config.Onboarded_Tenants))
+	requests, err := h.db.Read(ctx, filter,
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
 	h.Logger.Info("req", zap.Any("req", requests))
 	if err != nil {
 		return nil, errors.New("failed to fetch pending requests")
@@ -136,7 +140,9 @@ func (h *onboardingService) GetTenantByID(ctx context.Context, id string) (inter
 
 func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID string) error {
 	filter := bson.M{"request_id": requestID, "status": "pending"}
-	request, err := h.db.Read(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
+	request, err := h.db.Read(ctx, filter,
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardingRequests))
 
 	// Check if request is nil regardless of error
 	if request == nil {
@@ -179,7 +185,9 @@ func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID str
 	newRequestMap["approved_at"] = time.Now().String()
 
 	// Insert as approved tenant
-	_, err = h.db.Create(ctx, newRequestMap, db.WithDatabaseName("coredb"), db.WithCollectionName(config.Onboarding_Requests))
+	_, err = h.db.Create(ctx, newRequestMap,
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
 	if err != nil {
 		h.Logger.Error("Failed to create approved tenant", zap.Error(err))
 		return errors.New("failed to approve request")
@@ -204,7 +212,9 @@ func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID str
 // GetPendingRequests fetches pending onboarding requests
 func (h *onboardingService) GetActiveOrg(ctx context.Context) (interface{}, error) {
 	filter := bson.M{"status": "active"}
-	requests, err := h.db.ReadAll(ctx, filter, db.WithDatabaseName(config.Medusa_Core), db.WithCollectionName(config.Onboarding_Requests))
+	requests, err := h.db.ReadAll(ctx, filter,
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
 	if err != nil {
 		return nil, errors.New("failed to fetch pending requests")
 	}

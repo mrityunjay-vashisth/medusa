@@ -14,6 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type contextKey string
+
+const (
+	loggerKey contextKey = "logger"
+)
+
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -41,8 +47,9 @@ func main() {
 	}
 	defer logger.Sync()
 
-	serviceMg := services.NewServiceManager(dbClient, logger)
-	apiServer := apiserver.NewAPIServer(dbClient, serviceMg.GetRegistry(), logger)
+	ctx = context.WithValue(ctx, loggerKey, logger)
+	serviceMg := services.NewServiceManager(ctx, dbClient)
+	apiServer := apiserver.NewAPIServer(ctx, dbClient, serviceMg.GetRegistry())
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{}, // Your React app's URL

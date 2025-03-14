@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
+	"github.com/mrityunjay-vashisth/core-service/internal/handlers/adminhdlr"
+	"github.com/mrityunjay-vashisth/core-service/internal/handlers/authhdlr"
+	"github.com/mrityunjay-vashisth/core-service/internal/handlers/onboardinghdlr"
 	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"go.uber.org/zap"
 )
@@ -21,7 +25,12 @@ type handlerManager struct {
 }
 
 // NewMainHandler initializes subhandlers
-func NewMainHandler(db db.DBClientInterface, registry registry.ServiceRegistry, logger *zap.Logger) HandlerManagerInterface {
+func NewMainHandler(ctx context.Context, db db.DBClientInterface, registry registry.ServiceRegistry) HandlerManagerInterface {
+	logger, ok := ctx.Value("logger").(*zap.Logger)
+	if !ok {
+		logger = zap.L()
+	}
+
 	return &handlerManager{
 		db:       db,
 		registry: registry,
@@ -33,11 +42,11 @@ func NewMainHandler(db db.DBClientInterface, registry registry.ServiceRegistry, 
 func (h *handlerManager) GetSubHandler(name string) http.HandlerFunc {
 	switch name {
 	case "TenantHandler":
-		return NewOnboardingHandler(h.registry, h.logger).ServeHTTP
+		return onboardinghdlr.NewOnboardingHandler(h.registry, h.logger).ServeHTTP
 	case "AuthHandler":
-		return NewAuthHandler(h.registry, h.logger).ServeHTTP
+		return authhdlr.NewAuthHandler(h.registry, h.logger).ServeHTTP
 	case "AdminHandler":
-		return NewAdminHandler(h.registry, h.logger).ServeHTTP
+		return adminhdlr.NewAdminHandler(h.registry, h.logger).ServeHTTP
 
 	default:
 		h.logger.Error("Unknown handler", zap.String("name", name))

@@ -1,9 +1,11 @@
 package apiserver
 
 import (
+	"context"
 	"log"
 
 	"github.com/gorilla/mux"
+	"github.com/mrityunjay-vashisth/core-service/internal/config"
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers"
 	"github.com/mrityunjay-vashisth/core-service/internal/middleware"
@@ -27,23 +29,24 @@ type APIServer struct {
 }
 
 // NewAPIServer loads `registry.json` and registers API routes
-func NewAPIServer(db db.DBClientInterface, serviceRegistry registry.ServiceRegistry, logger *zap.Logger) *APIServer {
+func NewAPIServer(ctx context.Context, db db.DBClientInterface, serviceRegistry registry.ServiceRegistry) *APIServer {
+	logger, ok := ctx.Value("logger").(*zap.Logger)
+	if !ok {
+		// Fallback if logger is not in context or is of wrong type
+		logger = zap.NewNop() // or some default logger
+	}
+
 	server := &APIServer{
 		Router:   mux.NewRouter(),
 		Logger:   logger,
 		Registry: serviceRegistry,
 	}
-	// Load API registry
-	registry, err := LoadRegistry()
-	if err != nil {
-		log.Fatalf("Failed to load API registry: %v", err)
-	}
 
 	// Initialize handlers
-	mainHandler := handlers.NewMainHandler(db, serviceRegistry, logger)
+	mainHandler := handlers.NewMainHandler(ctx, db, serviceRegistry)
 
 	// Loop through `registry.json` and create API groups dynamically
-	for group, versions := range registry {
+	for group, versions := range config.Registry {
 		for version, resources := range versions {
 			apiPath := "/apis/" + group + "/" + version
 			subRouter := server.Router.PathPrefix(apiPath).Subrouter()
@@ -74,7 +77,7 @@ func NewAPIServer(db db.DBClientInterface, serviceRegistry registry.ServiceRegis
 	// Apply middleware
 	server.Router.Use(middleware.RecoveryMiddleware(logger))
 	server.Router.Use(middleware.LoggingMiddleware(logger))
-	server.Router.Use(middleware.ConditionalAuthMiddleware(serviceRegistry, publicRoutes))
+	server.Router.Use(middleware.ConditionalAuthMiddleware(serviceRegistry, config.PublicRoutes))
 	log.Println("API Server started on /apis/core/v1")
 	return server
 }

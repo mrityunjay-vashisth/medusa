@@ -9,14 +9,6 @@
         "methods": ["GET", "PATCH"],
         "subhandler": "TenantHandler"
       },
-      "/users": {
-        "methods": ["POST"],
-        "subhandler": "UserHandler"
-      },
-      "/users/{id}": {
-        "methods": ["GET"],
-        "subhandler": "UserHandler"
-      },
       "/auth/{subpath}": {
         "methods": ["POST"],
         "subhandler": "AuthHandler"
