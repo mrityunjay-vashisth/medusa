@@ -1,17 +1,172 @@
 {
   "core": {
     "v1": {
-      "/tenants/{action}": {
-        "methods": ["POST", "GET"],
-        "subhandler": "TenantHandler"
-      },
-      "/tenants/{action}/{id}":{
-        "methods": ["GET", "PATCH"],
-        "subhandler": "TenantHandler"
-      },
-      "/auth/{subpath}": {
+      "/organization/onboard": {
         "methods": ["POST"],
-        "subhandler": "AuthHandler"
+        "subhandler": "OrganizationHandler",
+        "description": "Onboard a new healthcare organization",
+        "requestBody": {
+          "required": true,
+          "contentType": "application/json"
+        },
+        "responses": {
+          "201": {
+            "description": "Organization onboarded successfully",
+            "schema": "OnboardingResponse"
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "409": {
+            "description": "Organization already exists"
+          }
+        }
+      },
+      "/organization/verify/{requestId}": {
+        "methods": ["GET"],
+        "subhandler": "OrganizationHandler",
+        "description": "Verify organization onboarding status",
+        "pathParams": {
+          "requestId": "string"
+        },
+        "responses": {
+          "200": {
+            "description": "Verification status retrieved successfully",
+            "schema": "VerificationResponse"
+          },
+          "404": {
+            "description": "Request ID not found"
+          }
+        }
+      },
+      "/organization/approve/{requestId}": {
+        "methods": ["PATCH"],
+        "subhandler": "OrganizationHandler",
+        "description": "Approve organization onboarding request",
+        "pathParams": {
+          "requestId": "string"
+        },
+        "security": ["admin"],
+        "responses": {
+          "200": {
+            "description": "Organization approved successfully",
+            "schema": "ApprovalResponse"
+          },
+          "404": {
+            "description": "Request ID not found"
+          }
+        }
+      },
+      "/organization/list": {
+        "methods": ["GET"],
+        "subhandler": "OrganizationHandler",
+        "description": "List all organizations",
+        "queryParams": {
+          "required": [],
+          "optional": [
+            {
+              "name": "status",
+              "type": "string",
+              "description": "Filter organizations by status",
+              "enum": ["pending", "approved", "rejected"]
+            },
+            {
+              "name": "page",
+              "type": "integer",
+              "description": "Page number for pagination",
+              "default": 1
+            },
+            {
+              "name": "limit",
+              "type": "integer",
+              "description": "Number of items per page",
+              "default": 20,
+              "max": 100
+            }
+          ]
+        },
+        "security": ["admin"],
+        "responses": {
+          "200": {
+            "description": "Organizations list retrieved successfully",
+            "schema": "OrganizationListResponse"
+          }
+        }
+      },
+      "/auth/login": {
+        "methods": ["POST"],
+        "subhandler": "AuthHandler",
+        "description": "Login to the system",
+        "requestBody": {
+          "required": true,
+          "contentType": "application/json"
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "schema": "LoginResponse"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      },
+      "/auth/register": {
+        "methods": ["POST"],
+        "subhandler": "AuthHandler",
+        "description": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "contentType": "application/json"
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "schema": "RegisterResponse"
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "409": {
+            "description": "User already exists"
+          }
+        }
+      },
+      "/users/profile": {
+        "methods": ["PUT"],
+        "subhandler": "UserHandler",
+        "description": "Update user profile information",
+        "security": ["user"],
+        "requestBody": {
+          "required": true,
+          "contentType": "application/json"
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "schema": "UserProfileResponse"
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "/health": {
+        "methods": ["GET"],
+        "subhandler": "HealthHandler",
+        "description": "Service health check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "schema": "HealthResponse"
+          },
+          "503": {
+            "description": "Service is unhealthy"
+          }
+        }
       }
     }
   }

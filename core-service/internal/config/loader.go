@@ -10,6 +10,19 @@ import (
 //go:embed registry.json
 var configFS embed.FS
 
+// QueryParamDefinition defines a single query parameter's metadata
+type QueryParamDefinition struct {
+	Name        string      `json:"name"`
+	Type        string      `json:"type"`
+	Description string      `json:"description"`
+	Format      string      `json:"format,omitempty"`
+	Default     interface{} `json:"default,omitempty"`
+	Example     string      `json:"example,omitempty"`
+	Enum        []string    `json:"enum,omitempty"`
+	Max         int         `json:"max,omitempty"`
+	Min         int         `json:"min,omitempty"`
+}
+
 type QueryParamConfig struct {
 	Required []string `json:"required"`
 	Optional []string `json:"optional"`
@@ -28,26 +41,6 @@ type APIRegistry map[string]map[string]map[string]APIResource
 var Registry APIRegistry
 
 var (
-	DatabaseNames = struct {
-		CoreDB string
-		AuthDB string
-	}{
-		CoreDB: "coredb",
-		AuthDB: "authdb",
-	}
-
-	CollectionNames = struct {
-		OnboardingRequests string
-		OnboardedTenants   string
-		UserData           string
-		Sessions           string
-	}{
-		OnboardingRequests: "onboarding_requests",
-		OnboardedTenants:   "onboarded_tenants",
-		UserData:           "user_data",
-		Sessions:           "session_store",
-	}
-
 	PublicRoutes = []string{
 		"/apis/core/v1/auth/login",
 		"/apis/core/v1/auth/register",
