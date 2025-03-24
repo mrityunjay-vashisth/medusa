@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/mux"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers/utility"
 	"github.com/mrityunjay-vashisth/core-service/internal/models"
 	"github.com/mrityunjay-vashisth/core-service/internal/registry"
@@ -19,10 +18,10 @@ import (
 var jwtKey = []byte("your-secure-jwt-secret-replace-in-production")
 
 type OnboardingHandlerInterface interface {
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
+	// ServeHTTP(w http.ResponseWriter, r *http.Request)
 	OnboardTenant(w http.ResponseWriter, r *http.Request)
 	GetTenants(w http.ResponseWriter, r *http.Request)
-	GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string)
+	GetTenantByRequestID(w http.ResponseWriter, r *http.Request)
 	ApproveOnboarding(w http.ResponseWriter, r *http.Request)
 }
 
@@ -56,44 +55,44 @@ PATCH  	/tenants/approve/{id}
 */
 
 // ServeHTTP routes requests to onboarding-specific functions
-func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	h.logger.Info("Onboarding API", zap.String("action", vars["action"]))
-	h.logger.Info("Onboarding API", zap.String("id", vars["id"]))
-	action := vars["action"]
-	id := vars["id"]
+// func (h *onboardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// 	vars := mux.Vars(r)
+// 	h.logger.Info("Onboarding API", zap.String("action", vars["action"]))
+// 	h.logger.Info("Onboarding API", zap.String("id", vars["id"]))
+// 	action := vars["action"]
+// 	id := vars["id"]
 
-	switch r.Method {
-	case http.MethodPost:
-		switch action {
-		case "onboard":
-			h.OnboardTenant(w, r)
-		default:
-			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding POST API")
-		}
-	case http.MethodGet:
-		switch action {
-		case "status":
-			if id == "" {
-				h.GetTenants(w, r)
-			} else {
-				h.GetTenantByRequestID(w, r, id)
-			}
-		default:
-			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding GET API")
-		}
-	case http.MethodPatch:
-		switch action {
-		case "approve":
-			h.ApproveOnboarding(w, r)
-		default:
-			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding PATCH API")
-		}
-	default:
-		utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding API Method")
+// 	switch r.Method {
+// 	case http.MethodPost:
+// 		switch action {
+// 		case "onboard":
+// 			h.OnboardTenant(w, r)
+// 		default:
+// 			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding POST API")
+// 		}
+// 	case http.MethodGet:
+// 		switch action {
+// 		case "status":
+// 			if id == "" {
+// 				h.GetTenants(w, r)
+// 			} else {
+// 				h.GetTenantByRequestID(w, r)
+// 			}
+// 		default:
+// 			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding GET API")
+// 		}
+// 	case http.MethodPatch:
+// 		switch action {
+// 		case "approve":
+// 			h.ApproveOnboarding(w, r)
+// 		default:
+// 			utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding PATCH API")
+// 		}
+// 	default:
+// 		utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding API Method")
 
-	}
-}
+// 	}
+// }
 
 // getOnboardingService retrieves the onboarding service from the registry
 func (h *onboardingHandler) getOnboardingService() (onboardingsvc.Service, error) {
@@ -167,7 +166,7 @@ func (h *onboardingHandler) GetTenants(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests)
 }
 
-func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.Request, id string) {
+func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
 	if token == "" {
 		h.logger.Info("Empty token received")
@@ -183,7 +182,7 @@ func (h *onboardingHandler) GetTenantByRequestID(w http.ResponseWriter, r *http.
 		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
-
+	id := r.URL.Query().Get("Id")
 	requests, err := service.GetTenantByID(r.Context(), id)
 	if err != nil {
 		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
@@ -234,6 +233,7 @@ func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Req
 func validateServiceToken(w http.ResponseWriter, tokenString string) bool {
 	ownerClaims, err := validateToken(tokenString)
 	if err != nil {
+		log.Println(err.Error())
 		utility.RespondWithError(w, http.StatusUnauthorized, "Invalid owner token")
 		return false
 	}
@@ -252,6 +252,7 @@ func validateToken(tokenString string) (*models.UserClaims, error) {
 	})
 
 	if err != nil || !token.Valid {
+		log.Println(err.Error())
 		return nil, errors.New("invalid token")
 	}
 	if time.Now().After(claims.ExpiresAt.Time) {

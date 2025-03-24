@@ -49,12 +49,15 @@ func main() {
 
 	ctx = context.WithValue(ctx, loggerKey, logger)
 	serviceMg := services.NewServiceManager(ctx, dbClient)
-	apiServer := apiserver.NewAPIServer(ctx, dbClient, serviceMg.GetRegistry())
+	apiServer, err := apiserver.NewAPIServer(ctx, dbClient, serviceMg.GetRegistry())
+	if err != nil {
+		log.Println(err)
+	}
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{}, // Your React app's URL
+		AllowedOrigins:   []string{"*"}, // Your React app's URL
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Session-Token"},
+		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
 		// Debug mode for troubleshooting
 		Debug: true,

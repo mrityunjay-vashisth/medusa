@@ -2,9 +2,6 @@ package config
 
 import (
 	"embed"
-	"encoding/json"
-	"log"
-	"os"
 )
 
 //go:embed registry.json
@@ -49,18 +46,18 @@ var (
 	}
 )
 
-func init() {
-	// Load the API registry from the embedded file
-	cwd, _ := os.Getwd()
-	log.Printf("Current working directory: %s", cwd)
-	data, err := configFS.ReadFile("registry.json")
-	if err != nil {
-		log.Fatalf("Failed to read embedded registry.json: %v", err)
-	}
+// func init() {
+// 	// Load the API registry from the embedded file
+// 	cwd, _ := os.Getwd()
+// 	log.Printf("Current working directory: %s", cwd)
+// 	data, err := configFS.ReadFile("registry.json")
+// 	if err != nil {
+// 		log.Fatalf("Failed to read embedded registry.json: %v", err)
+// 	}
 
-	if err := json.Unmarshal(data, &Registry); err != nil {
-		log.Fatalf("Failed to parse registry.json: %v", err)
-	}
+// 	if err := json.Unmarshal(data, &Registry); err != nil {
+// 		log.Fatalf("Failed to parse registry.json: %v", err)
+// 	}
 
-	log.Println("Static configuration loaded successfully")
-}
+// 	log.Println("Static configuration loaded successfully")
+// }
