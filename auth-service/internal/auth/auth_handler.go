@@ -25,6 +25,7 @@ type user struct {
 	Password string `bson:"password"`
 	Role     string `bson:"role"`
 	Email    string `bson:"email"`
+	TenantId string `bson:"tenantid"`
 }
 
 type claims struct {
@@ -37,7 +38,7 @@ func NewAuthService(client *mongo.Client) *authService {
 	return &authService{client: client}
 }
 
-func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
+func (s *authService) RegisterUser(ctx context.Context, req *authpb.RegisterUserRequest) (*authpb.RegisterUserResponse, error) {
 	// Validate input
 	if req.Username == "" || req.Password == "" || req.Email == "" || req.Role == "" {
 		return nil, errors.New("username, password email and role are required")
@@ -53,6 +54,7 @@ func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest)
 		Password: string(hashedPassword),
 		Role:     req.Role,
 		Email:    req.Email,
+		TenantId: req.TenantId,
 	}
 
 	collection := s.client.Database("authdb").Collection("users")
@@ -66,7 +68,7 @@ func (s *authService) Register(ctx context.Context, req *authpb.RegisterRequest)
 		return nil, errors.New("failed to register user")
 	}
 
-	return &authpb.RegisterResponse{Message: "User registered successfully"}, nil
+	return &authpb.RegisterUserResponse{Message: "User registered successfully"}, nil
 }
 
 func (s *authService) Login(ctx context.Context, req *authpb.LoginRequest) (*authpb.LoginResponse, error) {

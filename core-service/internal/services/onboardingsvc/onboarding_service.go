@@ -2,7 +2,6 @@ package onboardingsvc
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/mrityunjay-vashisth/go-idforge/pkg/idforge"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Service interface {
@@ -38,12 +36,9 @@ func NewService(db db.DBClientInterface, registry registry.ServiceRegistry, logg
 }
 
 func (h *onboardingService) OnboardTenant(ctx context.Context, req models.OnboardingRequest) (string, error) {
-	if req.OrganizationName == "" || req.Email == "" {
-		return "", errors.New("invalid request body")
-	}
 	requestId := idforge.GenerateWithSize(20)
 	tenantId := idforge.GenerateWithSize(10)
-	userId := idforge.GenerateWithSize(10)
+	username := idforge.GenerateWithSize(10)
 
 	filter := bson.M{"email": req.Email}
 	existingReq, err := h.db.Read(ctx, filter,
@@ -52,7 +47,6 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 
 	// First check for database errors
 	if err != nil {
-		h.Logger.Error("Database error", zap.Error(err))
 		return "", errors.New("database error while checking for existing requests")
 	}
 
@@ -68,7 +62,6 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 
 	// First check for database errors
 	if err != nil {
-		h.Logger.Error("Database error", zap.Error(err))
 		return "", errors.New("database error while checking for existing requests")
 	}
 
@@ -82,11 +75,11 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 		"organization_name": req.OrganizationName,
 		"email":             req.Email,
 		"status":            "pending",
-		"username":          userId,
 		"tenant_id":         tenantId,
 		"created_at":        time.Now().String(),
 		"request_id":        requestId,
 		"role":              req.Role,
+		"username":          username,
 		"geo_location":      "",
 		"entitlements":      "",
 	}
@@ -96,8 +89,6 @@ func (h *onboardingService) OnboardTenant(ctx context.Context, req models.Onboar
 	if err != nil {
 		return "", errors.New("failed to onboard tenant")
 	}
-
-	h.Logger.Info("Onboarding request submitted", zap.String("request_id", requestId))
 	return requestId, nil
 }
 
@@ -130,10 +121,20 @@ func (h *onboardingService) GetTenantByID(ctx context.Context, id string) (inter
 	filter := bson.M{"request_id": id}
 	requests, err := h.db.Read(ctx, filter,
 		db.WithDatabaseName(config.DatabaseNames.CoreDB),
-		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
-	h.Logger.Info("req", zap.Any("req", requests))
+		db.WithCollectionName(config.CollectionNames.OnboardingRequests))
+
 	if err != nil {
 		return nil, errors.New("failed to fetch pending requests")
+	}
+
+	// Now let's explicitly handle empty map case
+	requestMap, ok := requests.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("failed to process request data: type conversion failed")
+	}
+	// Check if the map is empty
+	if len(requestMap) == 0 {
+		return nil, errors.New("request id not approved, please contact support")
 	}
 	return requests, nil
 }
@@ -153,13 +154,13 @@ func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID str
 	// Now let's explicitly handle empty map case
 	requestMap, ok := request.(map[string]interface{})
 	if !ok {
-		h.Logger.Error("Failed to convert request to map", zap.Any("request", request))
+		h.Logger.Info("Failed to convert request to map", zap.Any("request", request))
 		return errors.New("failed to process request data: type conversion failed")
 	}
 
 	// Check if the map is empty
 	if len(requestMap) == 0 {
-		h.Logger.Error("Request map is empty", zap.Any("request", request))
+		h.Logger.Info("Request map is empty", zap.Any("request", request))
 		return errors.New("failed to process request data: empty data returned")
 	}
 
@@ -168,19 +169,11 @@ func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID str
 
 	// Copy all existing fields
 	for k, v := range requestMap {
-		newRequestMap[k] = v
+		if k != "_id" {
+			newRequestMap[k] = v
+		}
 	}
 
-	// Generate password
-	password := generateRandomPassword()
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		h.Logger.Error("Failed to hash password", zap.Error(err))
-		return errors.New("failed to process credentials")
-	}
-
-	// Add new fields to the new map
-	newRequestMap["password"] = string(hashedPassword)
 	newRequestMap["status"] = "active"
 	newRequestMap["approved_at"] = time.Now().String()
 
@@ -189,22 +182,23 @@ func (h *onboardingService) ApproveOnboarding(ctx context.Context, requestID str
 		db.WithDatabaseName(config.DatabaseNames.CoreDB),
 		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
 	if err != nil {
-		h.Logger.Error("Failed to create approved tenant", zap.Error(err))
-		return errors.New("failed to approve request")
+		h.Logger.Info("Failed to create approved tenant", zap.Error(err))
+		return err
 	}
 
-	// // Delete pending request
-	// _, err = h.db.Delete(ctx, filter, db.WithDatabaseName("coredb"), db.WithCollectionName("onboarding_requests"))
-	// if err != nil {
-	// 	h.Logger.Error("Failed to delete pending request", zap.Error(err))
-	// 	// Continue despite error
-	// }
+	// Delete pending request
+	_, err = h.db.Delete(ctx, filter,
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardingRequests))
+	if err != nil {
+		h.Logger.Info("Failed to delete pending request", zap.Error(err))
+		// Continue despite error
+	}
 
-	h.Logger.Info("Credentials prepared for",
+	h.Logger.Info("Approved for",
 		zap.String("email", newRequestMap["email"].(string)),
-		zap.String("username", newRequestMap["username"].(string)),
 		zap.String("request_id", newRequestMap["request_id"].(string)),
-		zap.String("password", password))
+	)
 
 	return nil
 }
@@ -219,14 +213,4 @@ func (h *onboardingService) GetActiveOrg(ctx context.Context) (interface{}, erro
 		return nil, errors.New("failed to fetch pending requests")
 	}
 	return requests, nil
-}
-
-func generateRandomPassword() string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 12)
-	_, _ = rand.Read(b)
-	for i := range b {
-		b[i] = charset[int(b[i])%len(charset)]
-	}
-	return string(b)
 }

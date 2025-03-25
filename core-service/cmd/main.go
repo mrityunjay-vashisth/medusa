@@ -14,12 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type contextKey string
-
-const (
-	loggerKey contextKey = "logger"
-)
-
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -46,8 +40,9 @@ func main() {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer logger.Sync()
+	logger.Info("ajhdjashjhwdjhj")
 
-	ctx = context.WithValue(ctx, loggerKey, logger)
+	ctx = context.WithValue(ctx, "logger", logger)
 	serviceMg := services.NewServiceManager(ctx, dbClient)
 	apiServer, err := apiserver.NewAPIServer(ctx, dbClient, serviceMg.GetRegistry())
 	if err != nil {

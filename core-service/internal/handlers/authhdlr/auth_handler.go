@@ -5,15 +5,14 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers/utility"
+	"github.com/mrityunjay-vashisth/core-service/internal/models"
 	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/authsvc"
 	"go.uber.org/zap"
 )
 
 type AuthHandlerInterface interface {
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	Login(w http.ResponseWriter, r *http.Request)
 	Register(w http.ResponseWriter, r *http.Request)
 }
@@ -27,22 +26,6 @@ func NewAuthHandler(registry registry.ServiceRegistry, logger *zap.Logger) AuthH
 	return &authHandler{
 		registry: registry,
 		logger:   logger,
-	}
-}
-
-// ServeHTTP routes requests
-func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	h.logger.Info("Auth API", zap.String("subpath", vars["subpath"]))
-	subPath := vars["subpath"]
-
-	switch subPath {
-	case "login":
-		h.Login(w, r)
-	case "register":
-		h.Register(w, r)
-	default:
-		utility.RespondWithError(w, http.StatusNotFound, "Invalid Onboarding API")
 	}
 }
 
@@ -69,13 +52,13 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	authService, err := a.getAuthService()
 	if err != nil {
-		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	authResp, err := authService.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
-		utility.RespondWithError(w, http.StatusInternalServerError, "Internal server error")
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -90,6 +73,36 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Register handles user registration requests
 func (a *authHandler) Register(w http.ResponseWriter, r *http.Request) {
-	// handle reg request
+	// Parse request body
+	var req models.AuthRegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Validate required fields
+	if req.Username == "" || req.Password == "" || req.Email == "" || req.Role == "" {
+		utility.RespondWithError(w, http.StatusBadRequest, "Missing required fields: username, password, email, and role are required")
+		return
+	}
+
+	// Get auth service
+	authService, err := a.getAuthService()
+	if err != nil {
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	authResp, err := authService.Register(r.Context(), req)
+
+	if err != nil {
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Return success response
+	utility.RespondWithJSON(w, http.StatusCreated, map[string]string{
+		"message": authResp.Message,
+	})
 }

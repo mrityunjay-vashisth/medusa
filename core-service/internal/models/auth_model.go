@@ -5,12 +5,12 @@ type LoginRequest struct {
 	Password string `json:"password" bson:"username"`
 }
 
-type RegisterRequest struct {
-	Name     string
-	Email    string
-	Username string
-	Password string
-	Gender   string
-	Role     string
-	TenantID string
+// RegisterRequest represents user registration data
+type AuthRegisterRequest struct {
+	Username string `json:"username" bson:"username"`
+	Password string `json:"password" bson:"password"`
+	Email    string `json:"email" bson:"email"`
+	Name     string `json:"name" bson:"name"`
+	Role     string `json:"role" bson:"role"`
+	TenantId string `json:"tenantid" bson:"tenant_id"`
 }

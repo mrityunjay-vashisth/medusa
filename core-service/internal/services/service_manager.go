@@ -28,6 +28,7 @@ func NewServiceManager(ctx context.Context, db db.DBClientInterface) *ServiceMan
 	if authServiceAddr == "" {
 		authServiceAddr = "172.26.57.112:50051"
 	}
+	logger.Info("Initializedddddddddddddddddddd")
 
 	authService := authsvc.NewService(db, authServiceAddr, logger)
 	onboardingService := onboardingsvc.NewService(db, serviceRegistry, logger)
