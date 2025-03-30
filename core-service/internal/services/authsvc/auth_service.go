@@ -3,6 +3,7 @@ package authsvc
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"log"
 
 	"github.com/mrityunjay-vashisth/core-service/internal/db"
@@ -15,7 +16,7 @@ import (
 
 type Service interface {
 	GetClient() authpb.AuthServiceClient
-	Login(context.Context, string, string) (*authpb.LoginResponse, error)
+	Login(context.Context, string, string, string) (*authpb.LoginResponse, error)
 	CreateSession(claims *models.UserClaims) (string, error)
 	Register(ctx context.Context, req models.AuthRegisterRequest) (*authpb.RegisterUserResponse, error)
 }
@@ -36,8 +37,14 @@ func NewService(db db.DBClientInterface, authServiceAddr string, logger *zap.Log
 	return &authService{db: db, client: authpb.NewAuthServiceClient(conn), Logger: logger}
 }
 
-func (a *authService) Login(ctx context.Context, username, password string) (*authpb.LoginResponse, error) {
+func (a *authService) Login(ctx context.Context, username, password, tenantid string) (*authpb.LoginResponse, error) {
 	a.Logger.Info("Got called in auth service")
+	if username == "" || password == "" {
+		return nil, errors.New("invalid request body")
+	}
+	if tenantid != "" {
+		username = username + "." + tenantid
+	}
 	authReq := &authpb.LoginRequest{
 		Username: username,
 		Password: password,
@@ -53,13 +60,11 @@ func (a *authService) Register(ctx context.Context, req models.AuthRegisterReque
 	if req.Password == "" {
 		req.Password = generateRandomPassword()
 	}
-	if err != nil {
-		a.Logger.Error("Failed to hash password", zap.Error(err))
-		return nil, err
-	}
+	username := req.Username + "." + req.TenantId
+
 	client := a.GetClient()
 	resp, err := client.RegisterUser(ctx, &authpb.RegisterUserRequest{
-		Username: req.Username,
+		Username: username,
 		Password: req.Password,
 		Email:    req.Email,
 		Role:     req.Role,

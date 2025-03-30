@@ -32,11 +32,15 @@ func NewServiceManager(ctx context.Context, db db.DBClientInterface) *ServiceMan
 
 	authService := authsvc.NewService(db, authServiceAddr, logger)
 	onboardingService := onboardingsvc.NewService(db, serviceRegistry, logger)
+	recoverySystem := onboardingsvc.NewStuckRequestRecovery(db, authService, logger)
 	adminService := adminsvc.NewService(db, serviceRegistry, logger)
 
 	serviceRegistry.Register(registry.AuthService, authService)
 	serviceRegistry.Register(registry.OnboardingService, onboardingService)
 	serviceRegistry.Register(registry.AdminService, adminService)
+	serviceRegistry.Register(registry.OnbardingRecoveryService, recoverySystem)
+
+	recoverySystem.Start()
 
 	return &ServiceManager{
 		registry: serviceRegistry,

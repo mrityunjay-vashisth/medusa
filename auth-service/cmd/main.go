@@ -29,10 +29,15 @@ func setupIndexes(client *mongo.Client) error {
 		Keys:    bson.D{{Key: "email", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
+	tenantIndex := mongo.IndexModel{
+		Keys:    bson.D{{Key: "tenantid", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
 
 	// Create both indexes
 	_, err := collection.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		emailIndex,
+		tenantIndex,
 	})
 
 	return err

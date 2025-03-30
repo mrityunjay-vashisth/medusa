@@ -10,11 +10,12 @@ import (
 
 // MockDBClient implements DBClientInterface for testing
 type MockDBClient struct {
-	ConnectFn func(ctx context.Context) error
-	CreateFn  func(ctx context.Context, data map[string]interface{}, opts ...db.DBOption) (interface{}, error)
-	ReadFn    func(ctx context.Context, filter map[string]interface{}, opts ...db.DBOption) (interface{}, error)
-	ReadAllFn func(ctx context.Context, filter map[string]interface{}, opts ...db.DBOption) (interface{}, error)
-	DeleteFn  func(ctx context.Context, filter map[string]interface{}, opts ...db.DBOption) (interface{}, error)
+	ConnectFn   func(ctx context.Context) error
+	CreateFn    func(ctx context.Context, data map[string]interface{}, opts ...db.DBOption) (interface{}, error)
+	ReadFn      func(ctx context.Context, filter map[string]interface{}, opts ...db.DBOption) (interface{}, error)
+	ReadAllFn   func(ctx context.Context, filter map[string]interface{}, opts ...db.DBOption) (interface{}, error)
+	DeleteFn    func(ctx context.Context, filter map[string]interface{}, opts ...db.DBOption) (interface{}, error)
+	UpdateOneFn func(ctx context.Context, filter map[string]interface{}, update map[string]interface{}, opts ...db.DBOption) (int64, error)
 }
 
 // MockClaims defines JWT claims for testing purposes
@@ -65,4 +66,12 @@ func (m *MockDBClient) Delete(ctx context.Context, filter map[string]interface{}
 		return m.DeleteFn(ctx, filter, opts...)
 	}
 	return nil, errors.New("DeleteFn not implemented")
+}
+
+// UpdateOne mock implementation
+func (m *MockDBClient) UpdateOne(ctx context.Context, filter map[string]interface{}, update map[string]interface{}, opts ...db.DBOption) (int64, error) {
+	if m.UpdateOneFn != nil {
+		return m.UpdateOneFn(ctx, filter, update, opts...)
+	}
+	return 0, errors.New("UpdateOneFn not implemented")
 }

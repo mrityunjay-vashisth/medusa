@@ -31,6 +31,7 @@ type user struct {
 type claims struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	TenantId string `json:"tenantid"`
 	jwt.RegisteredClaims
 }
 
@@ -88,6 +89,7 @@ func (s *authService) Login(ctx context.Context, req *authpb.LoginRequest) (*aut
 	claims := &claims{
 		Username: u.Username,
 		Role:     u.Role,
+		TenantId: u.TenantId,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},

@@ -24,9 +24,12 @@ paths:
                   type: string
                 password:
                   type: string
+                tenantid:
+                  type: string
               required:
                 - username
                 - password
+                - tenantid
       responses:
         '200':
           description: Successful login

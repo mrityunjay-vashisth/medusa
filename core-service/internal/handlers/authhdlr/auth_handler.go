@@ -43,6 +43,7 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		TenantID string `json:"tenantid"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
@@ -56,7 +57,7 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authResp, err := authService.Login(r.Context(), req.Username, req.Password)
+	authResp, err := authService.Login(r.Context(), req.Username, req.Password, req.TenantID)
 	if err != nil {
 		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return

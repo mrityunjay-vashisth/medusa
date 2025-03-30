@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -62,6 +63,36 @@ func (m *mongoClient) delete(ctx context.Context, filter bson.M, opts ...DBOptio
 		return 0, err
 	}
 	return result.DeletedCount, nil
+}
+
+// UpdateOne updates a single document in the specified collection.
+func (m *mongoClient) updateOne(ctx context.Context, filter bson.M, update bson.M, opts ...DBOption) (int64, error) {
+	dbName, collName := m.getDatabaseAndCollection(opts...)
+
+	collection := m.client.Database(dbName).Collection(collName)
+
+	// MongoDB requires update operations to use operators like $set
+	// Check if the update already has operators, if not, wrap it in $set
+	if len(update) > 0 && !hasUpdateOperators(update) {
+		update = bson.M{"$set": update}
+	}
+
+	result, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.ModifiedCount, nil
+}
+
+// hasUpdateOperators checks if the update document already contains MongoDB update operators
+func hasUpdateOperators(update bson.M) bool {
+	for key := range update {
+		if strings.HasPrefix(key, "$") {
+			return true
+		}
+	}
+	return false
 }
 
 // getDatabaseAndCollection extracts database and collection overrides if provided.

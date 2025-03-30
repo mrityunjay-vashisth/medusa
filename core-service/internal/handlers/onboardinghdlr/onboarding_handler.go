@@ -43,7 +43,7 @@ func NewOnboardingHandler(registry registry.ServiceRegistry, logger *zap.Logger)
 func (h *onboardingHandler) getOnboardingService() (onboardingsvc.Service, error) {
 	service, ok := h.registry.Get(registry.OnboardingService).(onboardingsvc.Service)
 	if !ok {
-		h.logger.Error("Failed to get onboarding service from registry")
+		h.logger.Info("Failed to get onboarding service from registry")
 		return nil, errors.New("internal service error")
 	}
 	return service, nil
@@ -53,7 +53,7 @@ func (h *onboardingHandler) getOnboardingService() (onboardingsvc.Service, error
 func (h *onboardingHandler) getAuthService() (authsvc.Service, error) {
 	service, ok := h.registry.Get(registry.AuthService).(authsvc.Service)
 	if !ok {
-		h.logger.Error("Failed to get auth service from registry")
+		h.logger.Info("Failed to get auth service from registry")
 		return nil, errors.New("internal service error")
 	}
 	return service, nil
@@ -189,34 +189,28 @@ func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Req
 		utility.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	service, err := h.getOnboardingService()
+	onboardingService, err := h.getOnboardingService()
 	if err != nil {
 		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
 		return
 	}
 
-	// Get tenant data first to extract registration info
-	tenantData, err := service.GetTenantByID(r.Context(), req.RequestID)
+	// Begin the approval process - changes status to "approval_in_progress"
+	tenantData, err := onboardingService.BeginApproval(r.Context(), req.RequestID)
 	if err != nil {
-		h.logger.Info("Failed to fetch tenant data", zap.Error(err), zap.String("request_id", req.RequestID))
-		utility.RespondWithError(w, http.StatusInternalServerError, "Failed to fetch tenant data: "+err.Error())
-		return
-	}
-
-	// Convert to map[string]interface{} if it isn't already
-	tenantMap, ok := tenantData.(map[string]interface{})
-	if !ok {
-		h.logger.Info("Invalid tenant data format", zap.Any("tenant_data", tenantData))
-		utility.RespondWithError(w, http.StatusInternalServerError, "Invalid tenant data format")
+		h.logger.Info("Failed to begin approval process",
+			zap.Error(err),
+			zap.String("request_id", req.RequestID))
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Extract required fields for registration
-	email, _ := tenantMap["email"].(string)
-	username, _ := tenantMap["username"].(string)
-	role, _ := tenantMap["role"].(string)
-	organizationName, _ := tenantMap["organization_name"].(string)
-	tenantID, _ := tenantMap["tenant_id"].(string)
+	email, _ := tenantData["email"].(string)
+	username, _ := tenantData["username"].(string)
+	role, _ := tenantData["role"].(string)
+	organizationName, _ := tenantData["organization_name"].(string)
+	tenantID, _ := tenantData["tenant_id"].(string)
 
 	if email == "" || username == "" || role == "" || tenantID == "" {
 		h.logger.Info("Missing required tenant data for registration",
@@ -224,50 +218,90 @@ func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Req
 			zap.String("username", username),
 			zap.String("role", role),
 			zap.String("tenantID", tenantID))
-		utility.RespondWithError(w, http.StatusInternalServerError, "Tenant data missing required fields")
+		// Mark approval as failed
+		onboardingService.MarkApprovalFailed(r.Context(), req.RequestID,
+			"Missing required tenant data for registration")
+
+		utility.RespondWithError(w, http.StatusInternalServerError,
+			"Tenant data missing required fields")
 		return
 	}
 
-	err = service.ApproveOnboarding(r.Context(), req.RequestID)
-	if err != nil {
-		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// Get auth service to register the user
-	authService, err := h.getAuthService()
-	if err != nil {
-		h.logger.Error("Failed to get auth service", zap.Error(err))
-		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
-		return
-	}
-
-	// Create a registration request
+	// Create registration request
 	regRequest := models.AuthRegisterRequest{
 		Username: username,
-		// Password is generated in ApproveOnboarding method and accessible via logs
-		// For production, implement a better password delivery mechanism
 		Email:    email,
-		Name:     organizationName, // Using org name as user name initially
+		Name:     organizationName,
 		Role:     role,
 		TenantId: tenantID,
 	}
 
-	// Register the user with auth service
-	_, err = authService.Register(r.Context(), regRequest)
+	// Get auth service
+	authService, err := h.getAuthService()
 	if err != nil {
-		h.logger.Error("Failed to register user with auth service",
-			zap.Error(err),
-			zap.String("username", username),
-			zap.String("email", email))
-		// Continue despite error since onboarding is already approved
-		// In production, you might want to handle this differently
-		utility.RespondWithError(w, http.StatusInternalServerError, "Failed to create account, contact support")
+		h.logger.Info("Failed to get auth service", zap.Error(err))
+
+		// Mark approval as failed
+		onboardingService.MarkApprovalFailed(r.Context(), req.RequestID,
+			"Internal service error: "+err.Error())
+
+		utility.RespondWithError(w, http.StatusInternalServerError,
+			"Internal service error")
 		return
 	}
 
-	// Return success response
-	json.NewEncoder(w).Encode(map[string]string{
+	// Register user
+	_, err = authService.Register(r.Context(), regRequest)
+	if err != nil {
+		h.logger.Info("Failed to register user",
+			zap.Error(err),
+			zap.String("request_id", req.RequestID),
+			zap.String("email", email))
+
+		// Mark approval as failed
+		onboardingService.MarkApprovalFailed(r.Context(), req.RequestID,
+			"User registration failed: "+err.Error())
+
+		utility.RespondWithError(w, http.StatusInternalServerError,
+			"Failed to register user: "+err.Error())
+		return
+	}
+
+	// Mark user as created - changes status to "user_created"
+	err = onboardingService.MarkUserCreated(r.Context(), req.RequestID)
+	if err != nil {
+		h.logger.Info("Failed to mark user as created",
+			zap.Error(err),
+			zap.String("request_id", req.RequestID))
+
+		// This is unusual - user was created but we couldn't update our status
+		// We'll continue with approval anyway, and the recovery system will fix it if needed
+		h.logger.Warn("Continuing with approval despite status update failure",
+			zap.String("request_id", req.RequestID))
+	}
+
+	// Complete the approval process
+	err = onboardingService.CompleteApproval(r.Context(), req.RequestID)
+	if err != nil {
+		h.logger.Info("Failed to complete approval",
+			zap.Error(err),
+			zap.String("request_id", req.RequestID))
+
+		// This is a serious issue - the user was created but we couldn't complete approval
+		// The recovery system will pick this up later
+		h.logger.Info("CRITICAL: User created but approval not completed. "+
+			"Recovery system will attempt to resolve.",
+			zap.String("request_id", req.RequestID),
+			zap.String("email", email))
+
+		utility.RespondWithError(w, http.StatusInternalServerError,
+			"User created but approval process incomplete - "+
+				"your account will be activated soon")
+		return
+	}
+
+	// Success response
+	utility.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message":   "Onboarding request approved and user registered",
 		"email":     email,
 		"username":  username,

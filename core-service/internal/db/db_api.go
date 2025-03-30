@@ -35,6 +35,7 @@ type DBClientInterface interface {
 	Read(ctx context.Context, data map[string]interface{}, opts ...DBOption) (interface{}, error)
 	ReadAll(ctx context.Context, data map[string]interface{}, opts ...DBOption) (interface{}, error)
 	Delete(ctx context.Context, data map[string]interface{}, opts ...DBOption) (interface{}, error)
+	UpdateOne(ctx context.Context, filter map[string]interface{}, update map[string]interface{}, opts ...DBOption) (int64, error)
 }
 
 type mongoClient struct {
@@ -121,5 +122,16 @@ func (d *DBClient) Delete(ctx context.Context, data map[string]interface{}, opts
 		return result, err
 	default:
 		return nil, errors.New("unsupported database type")
+	}
+}
+
+// Add this to the DBClient struct methods
+func (d *DBClient) UpdateOne(ctx context.Context, filter map[string]interface{}, update map[string]interface{}, opts ...DBOption) (int64, error) {
+	switch d.config.Type {
+	case MongoDB:
+		result, err := d.mongoClient.updateOne(ctx, filter, update, opts...)
+		return result, err
+	default:
+		return 0, errors.New("unsupported database type")
 	}
 }

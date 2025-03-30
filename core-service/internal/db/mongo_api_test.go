@@ -97,3 +97,55 @@ func TestDeleteDocument(t *testing.T) {
 		assert.GreaterOrEqual(t, deletedCount, int64(1), "Should delete at least one document")
 	})
 }
+
+func TestUpdateOneDocument(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+
+	mt.Run("Update one document", func(mt *mtest.T) {
+		// **Simulate MongoDB response**
+		updateResponse := mtest.CreateSuccessResponse(bson.E{Key: "n", Value: int32(1)}, bson.E{Key: "nModified", Value: int32(1)})
+		mt.AddMockResponses(updateResponse)
+
+		client := NewDBClient(DBConfig{
+			Type:           MongoDB,
+			URI:            "mongodb://fake-uri",
+			DatabaseName:   "test_db",
+			CollectionName: "test_collection",
+		})
+		client.mongoClient.client = mt.Client
+
+		// **Call actual UpdateOne API**
+		ctx := context.Background()
+		filter := bson.M{"name": "TestUser"}
+		update := bson.M{"email": "updated@example.com"}
+		modifiedCount, err := client.UpdateOne(ctx, filter, update)
+
+		// **Assertions**
+		assert.NoError(t, err, "UpdateOne should not return an error")
+		assert.Equal(t, int64(1), modifiedCount, "Should have modified one document")
+	})
+
+	mt.Run("Update with operators", func(mt *mtest.T) {
+		// **Simulate MongoDB response**
+		updateResponse := mtest.CreateSuccessResponse(bson.E{Key: "n", Value: int32(1)}, bson.E{Key: "nModified", Value: int32(1)})
+		mt.AddMockResponses(updateResponse)
+
+		client := NewDBClient(DBConfig{
+			Type:           MongoDB,
+			URI:            "mongodb://fake-uri",
+			DatabaseName:   "test_db",
+			CollectionName: "test_collection",
+		})
+		client.mongoClient.client = mt.Client
+
+		// **Call UpdateOne with explicit operators**
+		ctx := context.Background()
+		filter := bson.M{"name": "TestUser"}
+		update := bson.M{"$set": bson.M{"email": "updated@example.com"}, "$inc": bson.M{"loginCount": 1}}
+		modifiedCount, err := client.UpdateOne(ctx, filter, update)
+
+		// **Assertions**
+		assert.NoError(t, err, "UpdateOne with operators should not return an error")
+		assert.Equal(t, int64(1), modifiedCount, "Should have modified one document")
+	})
+}
