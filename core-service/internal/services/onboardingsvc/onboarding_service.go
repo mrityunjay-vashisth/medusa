@@ -23,6 +23,7 @@ type Service interface {
 	CompleteApproval(ctx context.Context, requestID string) error
 	MarkApprovalFailed(ctx context.Context, requestID string, reason string) error
 	RevertToRetriable(ctx context.Context, requestID string) error
+	GetTenantCheckByID(ctx context.Context, id string) (bool, error)
 }
 
 type onboardingService struct {
@@ -141,6 +142,29 @@ func (h *onboardingService) GetTenantByID(ctx context.Context, id string) (inter
 		return nil, errors.New("request id not approved, please contact support")
 	}
 	return requests, nil
+}
+
+// GetPendingRequests fetches pending onboarding requests
+func (h *onboardingService) GetTenantCheckByID(ctx context.Context, id string) (bool, error) {
+	filter := bson.M{"tenant_id": id}
+	requests, err := h.db.Read(ctx, filter,
+		db.WithDatabaseName(config.DatabaseNames.CoreDB),
+		db.WithCollectionName(config.CollectionNames.OnboardedTenants))
+
+	if err != nil {
+		return false, errors.New("failed to fetch pending requests")
+	}
+
+	// Now let's explicitly handle empty map case
+	requestMap, ok := requests.(map[string]interface{})
+	if !ok {
+		return false, errors.New("failed to process request data: type conversion failed")
+	}
+	// Check if the map is empty
+	if len(requestMap) == 0 {
+		return false, errors.New("request id not approved, please contact support")
+	}
+	return true, nil
 }
 
 // BeginApproval marks an onboarding request as "in progress"

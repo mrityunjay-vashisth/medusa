@@ -24,6 +24,7 @@ type OnboardingHandlerInterface interface {
 	GetTenants(w http.ResponseWriter, r *http.Request)
 	GetTenantByRequestID(w http.ResponseWriter, r *http.Request)
 	ApproveOnboarding(w http.ResponseWriter, r *http.Request)
+	GetTenantExistsByRequestID(w http.ResponseWriter, r *http.Request)
 }
 
 // OnboardingHandler handles all onboarding-related requests
@@ -307,6 +308,30 @@ func (h *onboardingHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Req
 		"username":  username,
 		"tenant_id": tenantID,
 	})
+}
+
+func (h *onboardingHandler) GetTenantExistsByRequestID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	// Validate the ID parameter
+	if id == "" {
+		utility.RespondWithError(w, http.StatusBadRequest, "Missing tenant ID")
+		return
+	}
+
+	service, err := h.getOnboardingService()
+	if err != nil {
+		utility.RespondWithError(w, http.StatusInternalServerError, "Internal service error")
+		return
+	}
+
+	exist, err := service.GetTenantCheckByID(r.Context(), id)
+	if err != nil {
+		utility.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	json.NewEncoder(w).Encode(exist)
 }
 
 func validateServiceToken(w http.ResponseWriter, tokenString string) bool {

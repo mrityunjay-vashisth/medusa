@@ -178,3 +178,35 @@ paths:
           description: Unauthorized
         '404':
           description: Not found
+  
+  /tenant/{id}:
+    get:
+      operationId: checkTenantById
+      summary: Check if tenant exist
+      description: Returns true if tenant exist.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Tenant request ID
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string

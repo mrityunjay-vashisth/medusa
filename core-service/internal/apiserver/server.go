@@ -134,6 +134,9 @@ func (s *APIServer) setupTenantRoutes(parent *mux.Router, ctx context.Context) e
 			Handler:     onboardingHandler.ApproveOnboarding,
 			Middlewares: []mux.MiddlewareFunc{middleware.AuthRequiredMiddleware(s.Registry)},
 		},
+		"checkTenantById": generator.RouteDefinition{
+			Handler: onboardingHandler.GetTenantExistsByRequestID,
+		},
 	}
 
 	// Generate router using go-apigen

@@ -45,6 +45,11 @@ func (a *authService) Login(ctx context.Context, username, password, tenantid st
 	if tenantid != "" {
 		username = username + "." + tenantid
 	}
+	a.Logger.Info("Info",
+		zap.String("username", username),
+		zap.String("password", password),
+		zap.String("tenantid", tenantid),
+	)
 	authReq := &authpb.LoginRequest{
 		Username: username,
 		Password: password,
