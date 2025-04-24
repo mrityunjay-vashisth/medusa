@@ -14,10 +14,12 @@ var (
 		OnboardedTenants   string
 		UserData           string
 		Sessions           string
+		Appointments       string
 	}{
 		OnboardingRequests: "onboarding_requests",
 		OnboardedTenants:   "onboarded_tenants",
 		UserData:           "user_data",
 		Sessions:           "session_store",
+		Appointments:       "appointments",
 	}
 )

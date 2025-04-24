@@ -10,6 +10,7 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers/adminhdlr"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers/authhdlr"
 	"github.com/mrityunjay-vashisth/core-service/internal/handlers/onboardinghdlr"
+	"github.com/mrityunjay-vashisth/core-service/internal/handlers/receptionhdlr"
 	"github.com/mrityunjay-vashisth/core-service/internal/middleware"
 	"github.com/mrityunjay-vashisth/core-service/internal/registry"
 	"github.com/mrityunjay-vashisth/go-apigen/pkg/generator"
@@ -18,10 +19,11 @@ import (
 
 // Constants for OpenAPI spec file paths
 const (
-	openapiDir     = "../internal/config/openapi"
-	authSpecFile   = "auth.yaml"
-	adminSpecFile  = "admin.yaml"
-	tenantSpecFile = "onboarding.yaml"
+	openapiDir        = "../internal/config/openapi"
+	authSpecFile      = "auth.yaml"
+	adminSpecFile     = "admin.yaml"
+	tenantSpecFile    = "onboarding.yaml"
+	receptionSpecFile = "reception.yaml"
 )
 
 // APIServer holds the router and related components
@@ -60,6 +62,10 @@ func NewAPIServer(ctx context.Context, db db.DBClientInterface, serviceRegistry 
 	}
 
 	if err := server.setupAdminRoutes(apiRouter, ctx); err != nil {
+		return nil, err
+	}
+
+	if err := server.setupReceptionRoutes(apiRouter, ctx); err != nil {
 		return nil, err
 	}
 
@@ -207,6 +213,65 @@ func (s *APIServer) setupAdminRoutes(parent *mux.Router, ctx context.Context) er
 	)
 
 	s.Logger.Info("Admin routes configured")
+	return nil
+}
+
+// setupReceptionRoutes creates the reception subrouter using go-apigen
+func (s *APIServer) setupReceptionRoutes(parent *mux.Router, ctx context.Context) error {
+	// Parse OpenAPI spec for reception endpoints
+	receptionSpec, err := generator.ParseOpenAPIFile(filepath.Join(openapiDir, receptionSpecFile))
+	if err != nil {
+		s.Logger.Error("Failed to parse reception OpenAPI spec", zap.Error(err))
+		return err
+	}
+
+	// Get reception handler
+	receptionHandler := receptionhdlr.NewReceptionHandler(s.Registry, s.Logger)
+
+	// Common middleware for all reception routes
+	receptionMiddleware := middleware.AuthRequiredMiddleware(s.Registry)
+
+	// Define operations map for reception endpoints
+	receptionOps := generator.OperationMap{
+		"listAppointments": generator.RouteDefinition{
+			Handler:     receptionHandler.ListAppointments,
+			Middlewares: []mux.MiddlewareFunc{receptionMiddleware},
+		},
+		"createAppointment": generator.RouteDefinition{
+			Handler:     receptionHandler.CreateAppointment,
+			Middlewares: []mux.MiddlewareFunc{receptionMiddleware},
+		},
+		"getAppointmentById": generator.RouteDefinition{
+			Handler:     receptionHandler.GetAppointmentByID,
+			Middlewares: []mux.MiddlewareFunc{receptionMiddleware},
+		},
+		"updateAppointment": generator.RouteDefinition{
+			Handler:     receptionHandler.UpdateAppointment,
+			Middlewares: []mux.MiddlewareFunc{receptionMiddleware},
+		},
+		"cancelAppointment": generator.RouteDefinition{
+			Handler:     receptionHandler.CancelAppointment,
+			Middlewares: []mux.MiddlewareFunc{receptionMiddleware},
+		},
+		"getAvailability": generator.RouteDefinition{
+			Handler:     receptionHandler.GetDoctorAvailability,
+			Middlewares: []mux.MiddlewareFunc{receptionMiddleware},
+		},
+	}
+
+	// Generate router using go-apigen
+	receptionRouter, err := generator.GenerateMuxRouter(receptionSpec, receptionOps)
+	if err != nil {
+		s.Logger.Error("Failed to generate reception router", zap.Error(err))
+		return err
+	}
+
+	// Mount reception router under /reception path prefix
+	parent.PathPrefix("/reception").Handler(
+		http.StripPrefix("/apis/core/v1/reception", receptionRouter),
+	)
+
+	s.Logger.Info("Reception routes configured")
 	return nil
 }
 

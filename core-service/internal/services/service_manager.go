@@ -9,6 +9,7 @@ import (
 	"github.com/mrityunjay-vashisth/core-service/internal/services/adminsvc"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/authsvc"
 	"github.com/mrityunjay-vashisth/core-service/internal/services/onboardingsvc"
+	"github.com/mrityunjay-vashisth/core-service/internal/services/receptionsvc"
 	"go.uber.org/zap"
 )
 
@@ -34,11 +35,13 @@ func NewServiceManager(ctx context.Context, db db.DBClientInterface) *ServiceMan
 	onboardingService := onboardingsvc.NewService(db, serviceRegistry, logger)
 	recoverySystem := onboardingsvc.NewStuckRequestRecovery(db, authService, logger)
 	adminService := adminsvc.NewService(db, serviceRegistry, logger)
+	reception := receptionsvc.NewService(db, serviceRegistry, logger)
 
 	serviceRegistry.Register(registry.AuthService, authService)
 	serviceRegistry.Register(registry.OnboardingService, onboardingService)
 	serviceRegistry.Register(registry.AdminService, adminService)
 	serviceRegistry.Register(registry.OnbardingRecoveryService, recoverySystem)
+	serviceRegistry.Register(registry.ReceptionService, reception)
 
 	recoverySystem.Start()
 
@@ -79,6 +82,15 @@ func (sm *ServiceManager) GetAdminService() adminsvc.Service {
 	svc, ok := sm.registry.Get(registry.AdminService).(adminsvc.Service)
 	if !ok {
 		panic("Admin service not found in registry or has wrong type")
+	}
+	return svc
+}
+
+// GetReceptionService returns the reception service
+func (sm *ServiceManager) GetReceptionService() receptionsvc.Service {
+	svc, ok := sm.registry.Get(registry.ReceptionService).(receptionsvc.Service)
+	if !ok {
+		panic("Reception service not found in registry or has wrong type")
 	}
 	return svc
 }

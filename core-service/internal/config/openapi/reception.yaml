@@ -1,0 +1,320 @@
+openapi: 3.0.2
+info:
+  title: Medusa Reception API
+  version: 1.0.0
+  description: Receptionist functionality for managing appointments
+servers:
+  - url: /apis/core/v1/reception
+    description: Reception API base path
+
+paths:
+  /appointments:
+    get:
+      operationId: listAppointments
+      summary: List all appointments
+      description: Retrieves all appointments with optional filtering.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: doctor_id
+          in: query
+          schema:
+            type: string
+          description: Filter by doctor ID
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+          description: Filter by patient ID
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter appointments from this date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter appointments to this date
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, completed, cancelled, no_show, rescheduled]
+          description: Filter by appointment status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppointmentResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+          
+    post:
+      operationId: createAppointment
+      summary: Create a new appointment
+      description: Books a new appointment for a patient with a doctor.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict - Time slot not available
+
+  /appointments/{id}:
+    get:
+      operationId: getAppointmentById
+      summary: Get appointment by ID
+      description: Retrieves an appointment by its ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+
+    put:
+      operationId: updateAppointment
+      summary: Update appointment
+      description: Updates an appointment's details.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+        '409':
+          description: Conflict - Time slot not available
+          
+  /appointments/{id}/cancel:
+    post:
+      operationId: cancelAppointment
+      summary: Cancel appointment
+      description: Cancels an existing appointment.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              required:
+                - reason
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+          
+  /availability:
+    get:
+      operationId: getAvailability
+      summary: Get doctor availability
+      description: Returns available time slots for a doctor on a given date.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: doctor_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    start_time:
+                      type: string
+                      format: date-time
+                    end_time:
+                      type: string
+                      format: date-time
+                    is_available:
+                      type: boolean
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+
+components:
+  schemas:
+    AppointmentCreateRequest:
+      type: object
+      properties:
+        patient_id:
+          type: string
+        patient_name:
+          type: string
+        doctor_id:
+          type: string
+        doctor_name:
+          type: string
+        scheduled_time:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Duration in minutes
+        appointment_type:
+          type: string
+          enum: [routine, urgent, follow_up, consultation, specialist]
+        notes:
+          type: string
+      required:
+        - patient_id
+        - patient_name
+        - doctor_id
+        - doctor_name
+        - scheduled_time
+        - duration
+        - appointment_type
+        
+    AppointmentUpdateRequest:
+      type: object
+      properties:
+        scheduled_time:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Duration in minutes
+        appointment_type:
+          type: string
+          enum: [routine, urgent, follow_up, consultation, specialist]
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled, no_show, rescheduled]
+        notes:
+          type: string
+          
+    AppointmentResponse:
+      type: object
+      properties:
+        appointment_id:
+          type: string
+        patient_id:
+          type: string
+        patient_name:
+          type: string
+        doctor_id:
+          type: string
+        doctor_name:
+          type: string
+        scheduled_time:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Duration in minutes
+        appointment_type:
+          type: string
+          enum: [routine, urgent, follow_up, consultation, specialist]
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled, no_show, rescheduled]
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

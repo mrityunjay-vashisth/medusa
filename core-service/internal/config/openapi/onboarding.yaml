@@ -145,7 +145,7 @@ paths:
                     type: string
 
   /approve:
-    patch:
+    post:
       operationId: approveTenant
       summary: Approve a tenant onboarding request
       description: Updates a tenant status from pending to active.

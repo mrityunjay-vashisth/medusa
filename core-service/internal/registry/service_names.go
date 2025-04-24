@@ -8,4 +8,5 @@ const (
 	OnboardingService        = "onboarding_service"
 	AdminService             = "admin_service"
 	OnbardingRecoveryService = "onboarding_recovery_service"
+	ReceptionService         = "reception_service"
 )
